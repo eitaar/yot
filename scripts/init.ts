@@ -13,6 +13,7 @@ import {
 import { ApiKeyService } from "../src/auth/apikey.js";
 import { openDb } from "../src/db/connection.js";
 
+try { process.loadEnvFile(); } catch {}
 const DB_PATH = process.env.DB_PATH ?? "data.db";
 
 function cancelled(): never {
