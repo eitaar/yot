@@ -16,7 +16,7 @@ try {
 }
 
 const DB_PATH = process.env.DB_PATH ?? "data.db";
-const PORT = Number(process.env.PORT ?? 3000);
+const PORT = Number(process.env.PORT ?? 4010);
 // MCP auth is on by default; set MCP_AUTH=off (or false/0/no) to open /mcp for
 // streamable-HTTP clients that can't send an Authorization header.
 const MCP_AUTH_DISABLED = ["off", "false", "0", "no"].includes(
