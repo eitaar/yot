@@ -32,6 +32,15 @@ const app = buildApp({ bus, services, logging: true });
 // Minimal web console for poking the REST API (public, same-origin).
 app.get("/", (c) => c.html(INDEX_HTML));
 
+// RFC 8707 resource metadata — lets MCP clients discover that this server
+// uses Bearer token auth before attempting a connection.
+app.get("/.well-known/oauth-protected-resource", (c) =>
+	c.json({
+		resource: `http://localhost:${PORT}`,
+		bearer_methods_supported: ["header"],
+	}),
+);
+
 // MCP endpoint: authenticated like the REST API unless MCP_AUTH is disabled. A
 // per-request server is built with the authenticated key's scope so write tools
 // refuse read-only keys; when auth is off it runs with full write scope.

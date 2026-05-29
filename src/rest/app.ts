@@ -19,6 +19,9 @@ import { registerTagRoutes } from "./tags.js";
 
 const errorHandler: ErrorHandler = (err, c) => {
 	if (err instanceof AppError) {
+		if (err.status === 401) {
+			c.header("WWW-Authenticate", 'Bearer realm="yot"');
+		}
 		const body = {
 			error: {
 				code: err.code,
