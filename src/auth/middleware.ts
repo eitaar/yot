@@ -8,6 +8,7 @@ export type AuthEnv = { Variables: { apiKey: ApiKey } };
 function extractRawKey(c: Context): string | null {
 	const auth = c.req.header("authorization");
 	if (auth?.toLowerCase().startsWith("bearer ")) return auth.slice(7).trim();
+	if (auth?.trim()) return auth.trim();
 	const x = c.req.header("x-api-key");
 	if (x?.trim()) return x.trim();
 	// Fallback for browser EventSource (cannot set headers) on the SSE feed.
