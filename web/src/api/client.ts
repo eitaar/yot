@@ -33,6 +33,18 @@ export type Tag = {
 	color: string | null;
 };
 
+// Mirrors the backend UpdateEvent schema (all fields optional).
+export type EventUpdate = Partial<{
+	calendar_id: string;
+	title: string;
+	description: string | null;
+	location: string | null;
+	start_at: string;
+	end_at: string;
+	all_day: boolean;
+	tags: string[];
+}>;
+
 export class ApiError extends Error {
 	constructor(
 		public readonly status: number,
@@ -90,6 +102,12 @@ export const api = {
 		description?: string;
 	}) =>
 		request<Event>("/events", { method: "POST", body: JSON.stringify(input) }),
+	getEvent: (id: string) => request<Event>(`/events/${id}`),
+	updateEvent: (id: string, input: EventUpdate) =>
+		request<Event>(`/events/${id}`, {
+			method: "PATCH",
+			body: JSON.stringify(input),
+		}),
 	deleteEvent: (id: string) =>
 		request<void>(`/events/${id}`, { method: "DELETE" }),
 

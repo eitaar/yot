@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import type { Event } from "@/api/client";
+import type { Event, EventUpdate } from "@/api/client";
 import { api } from "@/api/client";
 
 const events = ref<Event[]>([]);
@@ -18,9 +18,13 @@ export function useEvents() {
 		await api.createEvent(input);
 		await load();
 	}
+	async function update(id: string, input: EventUpdate) {
+		await api.updateEvent(id, input);
+		await load();
+	}
 	async function remove(id: string) {
 		await api.deleteEvent(id);
 		await load();
 	}
-	return { events, load, create, remove };
+	return { events, load, create, update, remove };
 }
