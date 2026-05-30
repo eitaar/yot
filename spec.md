@@ -30,17 +30,17 @@ full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 
 ### 1.3 Technology
 
-| Concern            | Choice                                                      |
-| ------------------ | ----------------------------------------------------------- |
-| Runtime            | Node.js 24 (ESM, `NodeNext`)                                |
-| HTTP framework     | Hono 4                                                      |
-| REST + OpenAPI     | `@hono/zod-openapi`                                         |
-| MCP transport      | `@modelcontextprotocol/sdk` `StdioServerTransport` (stdio)  |
-| Database           | `better-sqlite3` (synchronous)                              |
-| Validation/schemas | Zod 4 (via `@hono/zod-openapi`)                             |
-| CLI prompts        | `@clack/prompts`                                            |
-| Lint/format        | Biome                                                       |
-| Tests              | `node:test` run through `tsx`                               |
+| Concern            | Choice                                                     |
+| ------------------ | ---------------------------------------------------------- |
+| Runtime            | Node.js 24 (ESM, `NodeNext`)                               |
+| HTTP framework     | Hono 4                                                     |
+| REST + OpenAPI     | `@hono/zod-openapi`                                        |
+| MCP transport      | `@modelcontextprotocol/sdk` `StdioServerTransport` (stdio) |
+| Database           | `better-sqlite3` (synchronous)                             |
+| Validation/schemas | Zod 4 (via `@hono/zod-openapi`)                            |
+| CLI prompts        | `@clack/prompts`                                           |
+| Lint/format        | Biome                                                      |
+| Tests              | `node:test` run through `tsx`                              |
 
 ---
 
@@ -506,30 +506,30 @@ testing, not as a product UI.
 Environment variables (loaded from `.env` at startup if present; real environment
 variables take precedence):
 
-| Variable        | Default                             | Purpose                                                            |
-| --------------- | ----------------------------------- | ------------------------------------------------------------------ |
-| `PORT`          | `4010`                              | HTTP listen port (REST/SSE/web)                                    |
-| `DB_PATH`       | `data.db`                           | SQLite file (`:memory:` in tests); shared by both processes        |
-| `MCP_AUTH`      | `on`                                | `off`/`false`/`0`/`no` runs the stdio MCP server with full write   |
-| `YOT_API_KEY`   | —                                   | key the stdio MCP server resolves to a scope at startup (§5.4)     |
-| `YOT_HTTP_URL`  | `http://127.0.0.1:${PORT ?? 4010}`  | Base URL of the HTTP server; relay POSTs to `…/api/internal/events`|
-| `YOT_SSE_RELAY` | `on`                                | `off`/`false`/`0`/`no` force-disables the MCP→SSE relay            |
+| Variable        | Default                            | Purpose                                                             |
+| --------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| `PORT`          | `4010`                             | HTTP listen port (REST/SSE/web)                                     |
+| `DB_PATH`       | `data.db`                          | SQLite file (`:memory:` in tests); shared by both processes         |
+| `MCP_AUTH`      | `on`                               | `off`/`false`/`0`/`no` runs the stdio MCP server with full write    |
+| `YOT_API_KEY`   | —                                  | key the stdio MCP server resolves to a scope at startup (§5.4)      |
+| `YOT_HTTP_URL`  | `http://127.0.0.1:${PORT ?? 4010}` | Base URL of the HTTP server; relay POSTs to `…/api/internal/events` |
+| `YOT_SSE_RELAY` | `on`                               | `off`/`false`/`0`/`no` force-disables the MCP→SSE relay             |
 
 Both `.env` and `.mcp.json` are gitignored (they hold or can hold the raw key).
 
 ### 10.1 NPM scripts
 
-| Script             | Action                                                         |
-| ------------------ | -------------------------------------------------------------- |
-| `npm run dev`      | `tsx watch src/index.ts` (HTTP server: REST/SSE/web)           |
-| `npm run build`    | `tsc` → `dist/`                                                |
-| `npm start`        | `node dist/index.js` (HTTP server)                             |
-| `npm run mcp`      | `tsx src/mcp/stdio.ts` (stdio MCP server)                      |
-| `npm run mcp:start`| `node dist/mcp/stdio.js` (stdio MCP server, built)            |
-| `npm run init`     | create an API key, save it to `.env`, set MCP auth (`init.ts`) |
-| `npm run config`   | interactively edit `PORT` / `DB_PATH` / `MCP_AUTH` in `.env`   |
-| `npm test`         | `tsx --test "src/**/*.test.ts"` (node:test suites)             |
-| `npm run format`   | `biome check --write .`                                        |
+| Script              | Action                                                         |
+| ------------------- | -------------------------------------------------------------- |
+| `npm run dev`       | `tsx watch src/index.ts` (HTTP server: REST/SSE/web)           |
+| `npm run build`     | `tsc` → `dist/`                                                |
+| `npm start`         | `node dist/index.js` (HTTP server)                             |
+| `npm run mcp`       | `tsx src/mcp/stdio.ts` (stdio MCP server)                      |
+| `npm run mcp:start` | `node dist/mcp/stdio.js` (stdio MCP server, built)             |
+| `npm run init`      | create an API key, save it to `.env`, set MCP auth (`init.ts`) |
+| `npm run config`    | interactively edit `PORT` / `DB_PATH` / `MCP_AUTH` in `.env`   |
+| `npm test`          | `tsx --test "src/**/*.test.ts"` (node:test suites)             |
+| `npm run format`    | `biome check --write .`                                        |
 
 ---
 
