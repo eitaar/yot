@@ -197,10 +197,21 @@ After `@import "tailwindcss";` add:
   `.dark` class on `<html>`.
 - An `@theme` block defining `--color-accent` (emerald-600) and
   `--color-accent-hover` (emerald-700), plus any shared radius token.
-- A scoped override block for Schedule-X CSS variables (light + dark) to set the
-  accent, today highlight, border color, and font so the calendar matches. Drive
-  dark via the `.dark` selector. (Look up exact `--sx-*` variable names from
-  `@schedule-x/theme-default` at implementation time.)
+- A scoped override block for Schedule-X CSS variables so the calendar matches
+  the new look. Target `.sx-vue-calendar-wrapper` (the ScheduleXCalendar root)
+  for light, and `.dark .sx-vue-calendar-wrapper` for dark. The relevant
+  variables (confirmed present in `@schedule-x/theme-default/dist`):
+  - `--sx-color-primary` / `--sx-color-on-primary` — accent + text on accent
+    (set primary to emerald-600 / emerald-400 in dark).
+  - `--sx-color-primary-container` / `--sx-color-on-primary-container` — the
+    "today" highlight and selected states.
+  - `--sx-color-background`, `--sx-color-surface`,
+    `--sx-color-surface-container*` — grid/page surfaces (slate tones in dark).
+  - `--sx-color-on-background`, `--sx-color-on-surface` — text colors.
+  - `--sx-border`, `--sx-color-outline`, `--sx-color-outline-variant` — grid
+    lines/borders.
+  - `--sx-rounding-small`/`-medium`/`-large` and `--sx-font-*` — match radii/font.
+  Confirm rendered result in the browser during Task 12; nudge values as needed.
 
 **Step 4.2 — useTheme.ts**
 
