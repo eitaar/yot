@@ -36,3 +36,6 @@ dist/
 data.db
 data.db-wal
 data.db-shm
+
+# brainstorming visual-companion scratch dir
+.superpowers/
