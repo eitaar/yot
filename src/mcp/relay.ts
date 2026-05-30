@@ -13,7 +13,10 @@ export interface RelayOptions {
  *
  * Returns an unsubscribe function.
  */
-export function startChangeRelay(bus: EventBus, opts: RelayOptions): () => void {
+export function startChangeRelay(
+	bus: EventBus,
+	opts: RelayOptions,
+): () => void {
 	const { url, apiKey, fetchImpl = fetch } = opts;
 
 	return bus.subscribe((ev) => {

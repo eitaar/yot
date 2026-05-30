@@ -10,6 +10,8 @@
 
 .claude
 .mcp.json
+.superpowers
+.docs
 # deps
 node_modules/
 

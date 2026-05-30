@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"jsx": "preserve",
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"types": ["vite/client"],
+		"paths": {
+			"@/*": ["./src/*"],
+			"@yot/schemas/*": ["../src/schemas/*"]
+		}
+	},
+	"include": ["src/**/*.ts", "src/**/*.vue"]
+}

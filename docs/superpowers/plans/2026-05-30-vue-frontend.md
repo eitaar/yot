@@ -6,7 +6,7 @@
 
 **Architecture:** Backend gains an in-memory PIN service, public `pair`/`logout` and authed `pin`/`session` routes, cookie-aware auth middleware, rate limiting, and static serving of `web/dist`. The frontend is an independent Vite project that talks to `/api` (proxied in dev, same-origin in prod) and shares types from `src/schemas`.
 
-**Tech Stack:** Backend — Hono, @hono/zod-openapi, better-sqlite3, node:test. Frontend — Vue 3, Vite, Tailwind CSS v4, Vue Router, Schedule-X (`/schedule-x/schedule-x` v3, confirmed API).
+**Tech Stack:** Backend — Hono, @hono/zod-openapi, better-sqlite3, node:test. Frontend — Vue 3, Vite, Tailwind CSS v4, Vue Router, Schedule-X **v2** (string-date API; v3 requires the Temporal polyfill and is heavier — v2 is chosen for simplicity).
 
 **Reference spec:** `docs/superpowers/specs/2026-05-30-vue-frontend-design.md`
 
@@ -730,10 +730,10 @@ git commit -m "feat(server): serve web/dist SPA, remove inline dev console"
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@schedule-x/calendar": "^3.34.0",
-		"@schedule-x/events-service": "^3.34.0",
-		"@schedule-x/theme-default": "^3.34.0",
-		"@schedule-x/vue": "^3.34.0",
+		"@schedule-x/calendar": "^2.36.0",
+		"@schedule-x/events-service": "^2.36.0",
+		"@schedule-x/theme-default": "^2.36.0",
+		"@schedule-x/vue": "^2.36.0",
 		"vue": "^3.5.13",
 		"vue-router": "^4.5.0"
 	},
@@ -1406,7 +1406,7 @@ function addCalendar(e: Event) {
 </template>
 ```
 
-- [ ] **Step 3: `web/src/views/CalendarView.vue`** (Schedule-X integration, confirmed v3 API)
+- [ ] **Step 3: `web/src/views/CalendarView.vue`** (Schedule-X v2 string-date API, confirmed via Context7)
 
 ```vue
 <script setup lang="ts">
@@ -1437,7 +1437,8 @@ const calendarApp = createCalendar({
 	plugins: [eventsService],
 });
 
-// Schedule-X wants "YYYY-MM-DD HH:mm" (local) or "YYYY-MM-DD" for all-day.
+// Backend stores ISO-8601 UTC. Schedule-X v2 wants local strings:
+// "YYYY-MM-DD HH:mm" for timed events, "YYYY-MM-DD" for all-day.
 function toSx(iso: string, allDay: boolean): string {
 	const d = new Date(iso);
 	const p = (n: number) => String(n).padStart(2, "0");
@@ -1629,7 +1630,7 @@ git commit -m "chore: format and final cleanup"
 
 ## Self-Review Notes (for the implementer)
 
-- **Schedule-X version:** Plan pins `@schedule-x/*` to `^3.34.0` (confirmed API: `createCalendar`, `createViewMonthGrid/Week/Day`, `createEventsServicePlugin().set()`, `<ScheduleXCalendar :calendar-app>`). If `npm install` resolves a different major, re-check the events-service `.set()` signature.
+- **Schedule-X version:** Plan pins `@schedule-x/*` to `^2.36.0` (v2 API confirmed via Context7: `createCalendar`, `createViewMonthGrid/Week/Day`, `createEventsServicePlugin().set(events)` with string dates `"YYYY-MM-DD HH:mm"`, `<ScheduleXCalendar :calendar-app>`). **Do not** upgrade to v3 without rewriting `CalendarView.vue`: v3 replaces string dates with the Temporal API (`Temporal.ZonedDateTime`/`PlainDate`), drops `set()` (use `getAll()`+`remove()`+`add()`), and requires `import 'temporal-polyfill/global'` plus a `temporal-polyfill` dependency.
 - **Schema alias imports** use `@yot/schemas/<file>.js` and only `import type`, so no backend runtime is bundled and no `.js`/ESM resolution issue arises at build time.
 - **Middleware order** in Task 5 is load-bearing: `pair`/`logout` before `authenticate`, `pin`/`session` between `authenticate` and `requireWriteForMutations`.
 - **Biome** governs `.` — frontend files under `web/` are included by `npm run format`; if Biome flags Vue SFCs it does not parse, scope formatting to `src/`/`scripts/` instead.

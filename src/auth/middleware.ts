@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { getCookie } from "hono/cookie";
 import { ForbiddenError, UnauthorizedError } from "../core/errors.js";
 import type { ApiKey, ApiKeyService, Scope } from "./apikey.js";
 
@@ -11,6 +12,8 @@ function extractRawKey(c: Context): string | null {
 	if (auth?.trim()) return auth.trim();
 	const x = c.req.header("x-api-key");
 	if (x?.trim()) return x.trim();
+	const cookie = getCookie(c, "yot_session");
+	if (cookie?.trim()) return cookie.trim();
 	// Fallback for browser EventSource (cannot set headers) on the SSE feed.
 	return c.req.query("key")?.trim() || null;
 }

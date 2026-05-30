@@ -1,8 +1,8 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 import type { AuthEnv } from "../auth/middleware.js";
-import type { EventBus } from "../core/event-bus.js";
 import { ValidationError } from "../core/errors.js";
+import type { EventBus } from "../core/event-bus.js";
 
 const InternalEventBody = z.object({
 	type: z.string().regex(/^[a-z]+\.[a-z]+$/),
