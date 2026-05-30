@@ -14,6 +14,7 @@ import type { EventBus } from "../core/event-bus.js";
 import type { Services } from "../services/container.js";
 import { registerCalendarRoutes } from "./calendars.js";
 import { registerEventRoutes } from "./events.js";
+import { registerInternalRoutes } from "./internal.js";
 import { registerStreamRoute } from "./stream.js";
 import { registerTagRoutes } from "./tags.js";
 
@@ -103,6 +104,7 @@ export function buildApp({
 	registerEventRoutes(api, services);
 	registerTagRoutes(api, services);
 	registerStreamRoute(api, bus);
+	registerInternalRoutes(api, bus);
 
 	const app = new OpenAPIHono<AuthEnv>();
 	// Global middleware must be registered before the routes it should wrap.

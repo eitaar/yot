@@ -5,6 +5,8 @@
 		"dev": "tsx watch src/index.ts",
 		"build": "tsc",
 		"start": "node dist/index.js",
+		"mcp": "tsx src/mcp/stdio.ts",
+		"mcp:start": "node dist/mcp/stdio.js",
 		"init": "tsx scripts/init.ts",
 		"config": "tsx scripts/config.ts",
 		"test": "tsx --test \"src/**/*.test.ts\"",
@@ -12,7 +14,6 @@
 	},
 	"dependencies": {
 		"@clack/prompts": "^1.4.0",
-		"@hono/mcp": "^0.3.0",
 		"@hono/node-server": "^1.19.14",
 		"@hono/zod-openapi": "^1.4.0",
 		"@modelcontextprotocol/sdk": "^1.29.0",

@@ -36,7 +36,7 @@ function updateEnvFile(path: string, updates: Record<string, string>): void {
 
 function getCurrentValues() {
 	return {
-		PORT: process.env.PORT ?? "3000",
+		PORT: process.env.PORT ?? "4010",
 		DB_PATH: process.env.DB_PATH ?? "data.db",
 		MCP_AUTH: process.env.MCP_AUTH ?? "on",
 	};
@@ -58,7 +58,7 @@ async function main() {
 				{ value: "DB_PATH", label: "DB_PATH — SQLite database file path" },
 				{
 					value: "MCP_AUTH",
-					label: "MCP_AUTH — require auth on /mcp endpoint",
+					label: "MCP_AUTH — require YOT_API_KEY for the MCP server",
 				},
 				{ value: "done", label: "Done" },
 			],
@@ -91,10 +91,13 @@ async function main() {
 			const val = await select({
 				message: "MCP_AUTH",
 				options: [
-					{ value: "on", label: "on (recommended) — require API key for /mcp" },
+					{
+						value: "on",
+						label: "on (recommended) — require YOT_API_KEY for the MCP server",
+					},
 					{
 						value: "off",
-						label: "off — /mcp open to unauthenticated requests",
+						label: "off — MCP server runs with full write, no key",
 					},
 				],
 			});
@@ -103,9 +106,10 @@ async function main() {
 			if (val === "off") {
 				note(
 					"⚠️  CRITICAL SECURITY EXPOSURE WARNING  ⚠️\n\n" +
-						"🔴 Setting MCP_AUTH to 'off' leaves the `/mcp` endpoint completely UNPROTECTED.\n\n" +
-						"ANYONE who can reach this port or server URL can read, modify, or\n" +
-						"MALICIOUSLY WIPE your database. Never use this configuration in production.",
+						"🔴 Setting MCP_AUTH to 'off' makes the MCP server run every tool with\n" +
+						"full WRITE scope and no key check.\n\n" +
+						"ANYONE who can launch this server can read, modify, or MALICIOUSLY\n" +
+						"WIPE your database. Never use this configuration in production.",
 					"🚨 DANGER: SECURITY COMPLETELY DISABLED 🚨",
 				);
 				const ack = await confirm({

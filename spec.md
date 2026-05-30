@@ -35,7 +35,7 @@ full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 | Runtime            | Node.js 24 (ESM, `NodeNext`)                                |
 | HTTP framework     | Hono 4                                                      |
 | REST + OpenAPI     | `@hono/zod-openapi`                                         |
-| MCP transport      | `@hono/mcp` (Streamable HTTP) + `@modelcontextprotocol/sdk` |
+| MCP transport      | `@modelcontextprotocol/sdk` `StdioServerTransport` (stdio)  |
 | Database           | `better-sqlite3` (synchronous)                              |
 | Validation/schemas | Zod 4 (via `@hono/zod-openapi`)                             |
 | CLI prompts        | `@clack/prompts`                                            |
@@ -54,22 +54,37 @@ into service calls and shape the results. Every successful mutation publishes a
 change event to an in-process **event bus**, which the SSE endpoint forwards to
 clients.
 
+There are **two processes**. The HTTP server hosts the REST API, the SSE feed,
+and the web console. The MCP server is a **separate stdio process** spawned by
+the MCP client; it talks JSON-RPC over stdin/stdout and runs no HTTP. Both
+processes open the same SQLite file but each has its own in-memory event bus.
+
 ```
+HTTP server process
                        ┌─────────────── SSE clients
                        │  (event bus)
-request → auth mw → REST route ─┐
-request → auth mw → MCP tool  ──┼──→ service → better-sqlite3
-                                │        └──→ event bus ──┘
+request → auth mw → REST route ──→ service ──→ better-sqlite3
+                                      └──→ event bus ──┘
+                                             ↑
+                     POST /api/internal/events (relay uplink)
+                                             │
+stdio MCP process (spawned by the client)    │
+stdin/stdout ↔ MCP tool ──→ service ──→ better-sqlite3  (same file)
+                              └──→ event bus ──→ relay ──┘
 ```
 
-This is why a change made through MCP appears on the REST SSE feed: both go
-through the same service, which emits to the same bus.
+Because the bus is in-process, the two processes cannot share a single bus
+directly. A **relay** bridges them: the MCP process subscribes to its own bus and
+POSTs each `ChangeEvent` to the HTTP server's internal endpoint
+(`POST /api/internal/events`), which replays it onto the HTTP bus — so changes
+made through MCP appear on the SSE feed almost instantly. The relay is one-way
+(MCP → HTTP); REST changes are not pushed back to the MCP process.
 
 ### 2.2 Source layout
 
 ```
 src/
-  index.ts                 # compose db, services, REST, MCP, SSE, web; start server
+  index.ts                 # compose db, services, REST, SSE, web; start HTTP server
   db/
     schema.ts              # SCHEMA_SQL (DDL as a TS string)
     connection.ts          # openDb(path): pragmas + apply schema
@@ -96,13 +111,16 @@ src/
     events.ts              # /events routes (+ reminders, tag links)
     tags.ts                # /tags routes
     stream.ts              # GET /stream SSE
+    internal.ts            # POST /internal/events (relay uplink from MCP)
   mcp/
     server.ts              # buildMcpServer(services, scope): registers 14 tools
+    stdio.ts               # stdio MCP entry point: db→services→server→StdioServerTransport
+    relay.ts               # startChangeRelay: forwards bus events to HTTP server
   web/
     page.ts                # INDEX_HTML dev console served at GET /
 scripts/
-  init.ts                  # interactive API-key creation
-  mcp-auth.mjs             # headersHelper for Claude Code (reads .env → Authorization)
+  init.ts                  # interactive: create API key, save to .env, set MCP auth
+  config.ts                # interactive .env editor (PORT / DB_PATH / MCP_AUTH)
 ```
 
 ### 2.3 Request lifecycle
@@ -111,9 +129,10 @@ scripts/
    permissive CORS, secure headers.
 2. **Public** endpoints answer without auth: `GET /`, `/api/health`, `/api/doc`,
    `/api/ui`.
-3. The **auth middleware** runs for `/api/*` (and `/mcp` unless disabled): it
-   resolves the API key, rejects missing/invalid/revoked keys with `401`, records
-   `last_used_at`, and stashes the key on the context.
+3. The **auth middleware** runs for `/api/*`: it resolves the API key, rejects
+   missing/invalid/revoked keys with `401`, records `last_used_at`, and stashes
+   the key on the context. The stdio MCP server resolves its key once at startup
+   instead (§5.4), not per request.
 4. For REST, a second middleware rejects mutating methods (`403`) when the key is
    `read`-scoped.
 5. The route/tool calls the service. Errors thrown by services are mapped to
@@ -272,26 +291,40 @@ date-only values). Stored verbatim.
 
 ### 5.2 Credential transport
 
-The key may be supplied as (checked in this order):
+For the **REST/SSE HTTP server**, the key may be supplied as (checked in this
+order):
 
 1. `Authorization: Bearer <key>`
-2. `X-API-Key: <key>`
-3. `?key=<key>` query parameter — for browser `EventSource` (which cannot set
-   headers) and for MCP clients that can only configure a URL.
+2. `Authorization: <key>` — a bare value without the `Bearer` prefix is also
+   accepted.
+3. `X-API-Key: <key>`
+4. `?key=<key>` query parameter — for browser `EventSource`, which cannot set
+   headers.
+
+The same extraction applies to every authenticated route, so `?key=` works on
+any `/api/*` endpoint, not just the SSE feed.
+
+The **stdio MCP server** has no HTTP request, so it reads the key once from the
+`YOT_API_KEY` environment variable at startup (§5.4).
 
 ### 5.3 Enforcement
 
-- **Missing / invalid / revoked key** → `401 unauthorized`.
+- **Missing / invalid / revoked key** → `401 unauthorized` (the response carries
+  a `WWW-Authenticate: Bearer realm="yot"` header).
 - **REST mutation with a `read` key** (any non-GET/HEAD/OPTIONS method) →
   `403 forbidden`.
 - **MCP write tool with a `read` key** → tool result with `isError: true` and
   message "This API key is read-only".
 
-### 5.4 MCP auth toggle
+### 5.4 MCP scope (stdio)
 
-`/mcp` is authenticated by default. Setting `MCP_AUTH=off` (or `false`/`0`/`no`)
-disables auth on `/mcp` only and runs MCP tools with full `write` scope. The REST
-API remains protected regardless of this setting.
+The stdio MCP server is authenticated by default. At startup it reads
+`YOT_API_KEY` and resolves it against the key store: an unknown/revoked key (or a
+missing variable) aborts the process with an error on stderr and a non-zero exit;
+a valid key fixes the connection's scope (`read` or `write`) for its lifetime and
+updates `last_used_at`. Setting `MCP_AUTH=off` (or `false`/`0`/`no`) skips the
+key lookup entirely and runs every tool with full `write` scope. The REST API is
+a separate process and stays protected regardless of this setting.
 
 ---
 
@@ -326,8 +359,8 @@ Base path `/api`. Interactive docs at `/api/ui`; raw OpenAPI 3.0 at `/api/doc`
 | POST   | `/tags`                        | write  | CreateTag      | 201 `Tag`                |
 | DELETE | `/tags/{id}`                   | write  | —              | 204                      |
 
-Also at the server root: `GET /` serves the web console (§9); `ALL /mcp` is the
-MCP endpoint (§8).
+Also at the server root: `GET /` serves the web console (§9). The MCP server is
+a separate stdio process, not an HTTP endpoint (§8).
 
 ### 6.2 Errors
 
@@ -352,15 +385,15 @@ Single error envelope, emitted by the `onError` handler:
 KEY=cal_xxx
 # create a calendar
 curl -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
-  -d '{"name":"Work","color":"#3b82f6"}' http://localhost:3000/api/calendars
+  -d '{"name":"Work","color":"#3b82f6"}' http://localhost:4010/api/calendars
 # create an event in it
 curl -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
   -d '{"calendar_id":"<id>","title":"Standup",
        "start_at":"2026-05-30T09:00:00Z","end_at":"2026-05-30T09:30:00Z"}' \
-  http://localhost:3000/api/events
+  http://localhost:4010/api/events
 # filtered list
 curl -H "Authorization: Bearer $KEY" \
-  "http://localhost:3000/api/events?calendarId=<id>&from=2026-05-01T00:00:00Z&q=stand"
+  "http://localhost:4010/api/events?calendarId=<id>&from=2026-05-01T00:00:00Z&q=stand"
 ```
 
 ---
@@ -397,10 +430,13 @@ full refreshed event (clients just re-render the event).
 
 ## 8. MCP
 
-Endpoint `ALL /mcp`, Streamable HTTP transport. Server identity:
-`yot-calendar` v1.0.0. Authenticated by default (§5.4). A per-request `McpServer`
-is built with the caller's scope; tool input schemas are the same Zod schemas as
-REST. Service errors are returned as `{ isError: true }` text results.
+A **stdio** server (`src/mcp/stdio.ts`), spawned by the MCP client and speaking
+JSON-RPC over stdin/stdout — no HTTP. Server identity: `yot-calendar` v1.0.0.
+Authenticated by default (§5.4): the `McpServer` is built once at startup with
+the scope resolved from `YOT_API_KEY` (or full `write` when `MCP_AUTH=off`). Tool
+input schemas are the same Zod schemas as REST. Service errors are returned as
+`{ isError: true }` text results. Because the process writes JSON-RPC on stdout,
+it emits no startup banner there; diagnostics go to stderr.
 
 ### 8.1 Tools (14)
 
@@ -423,19 +459,36 @@ REST. Service errors are returned as `{ isError: true }` text results.
 
 ### 8.2 Client configuration
 
-The repo ships `.mcp.json` (Claude Code) pointing at `http://localhost:3000/mcp`.
-Auth options for any MCP client:
+A local `.mcp.json` (gitignored) launches the `yot` server as a child process and
+passes the key through its environment:
 
-- **Header** (if supported): `Authorization: Bearer <key>`. The bundled
-  `scripts/mcp-auth.mjs` is a `headersHelper` that reads `YOT_API_KEY` from
-  `.env` so the secret stays out of `.mcp.json`.
-- **URL query**: set the server URL to `http://localhost:3000/mcp?key=<key>`.
-- **No auth**: run with `MCP_AUTH=off`.
-- **Bridge** for stdio-only clients: `npx mcp-remote http://localhost:3000/mcp
-  --header "Authorization: Bearer <key>"`.
+```json
+{
+  "mcpServers": {
+    "yot": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/stdio.ts"],
+      "env": { "YOT_API_KEY": "cal_..." }
+    }
+  }
+}
+```
 
-The server listens on localhost; only same-machine agents can reach it without a
-tunnel.
+The key's scope (`read`/`write`) governs which tools succeed. To run without a
+key, set `"env": { "MCP_AUTH": "off" }` instead (full `write`, no auth). For a
+compiled deployment, point `command`/`args` at `node dist/mcp/stdio.js`
+(`npm run mcp:start`). The client spawns the process locally, so only the
+same-machine agent can reach it.
+
+### 8.3 SSE relay
+
+The MCP process runs a **change relay** (`src/mcp/relay.ts`) that forwards every
+bus event to the HTTP server via `POST /api/internal/events`, authenticated with
+`YOT_API_KEY`. This bridges the two in-memory buses so MCP mutations appear on
+the SSE feed almost instantly. The relay is fire-and-forget (a failed POST is
+logged to stderr but does not affect the tool result). It is enabled by default
+when `YOT_API_KEY` is set and `YOT_SSE_RELAY` is not disabled. See §10 for the
+relay-specific environment variables.
 
 ---
 
@@ -453,25 +506,30 @@ testing, not as a product UI.
 Environment variables (loaded from `.env` at startup if present; real environment
 variables take precedence):
 
-| Variable      | Default   | Purpose                                                    |
-| ------------- | --------- | ---------------------------------------------------------- |
-| `PORT`        | `3000`    | HTTP listen port                                           |
-| `DB_PATH`     | `data.db` | SQLite file (`:memory:` in tests)                          |
-| `MCP_AUTH`    | `on`      | `off`/`false`/`0`/`no` disables `/mcp` auth                |
-| `YOT_API_KEY` | —         | used by `scripts/mcp-auth.mjs` (Claude Code headersHelper) |
+| Variable        | Default                             | Purpose                                                            |
+| --------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| `PORT`          | `4010`                              | HTTP listen port (REST/SSE/web)                                    |
+| `DB_PATH`       | `data.db`                           | SQLite file (`:memory:` in tests); shared by both processes        |
+| `MCP_AUTH`      | `on`                                | `off`/`false`/`0`/`no` runs the stdio MCP server with full write   |
+| `YOT_API_KEY`   | —                                   | key the stdio MCP server resolves to a scope at startup (§5.4)     |
+| `YOT_HTTP_URL`  | `http://127.0.0.1:${PORT ?? 4010}`  | Base URL of the HTTP server; relay POSTs to `…/api/internal/events`|
+| `YOT_SSE_RELAY` | `on`                                | `off`/`false`/`0`/`no` force-disables the MCP→SSE relay            |
 
-`.env` is gitignored. `.mcp.json` is gitignored once it no longer holds a raw key.
+Both `.env` and `.mcp.json` are gitignored (they hold or can hold the raw key).
 
 ### 10.1 NPM scripts
 
-| Script           | Action                                           |
-| ---------------- | ------------------------------------------------ |
-| `npm run dev`    | `tsx watch src/index.ts`                         |
-| `npm run build`  | `tsc` → `dist/`                                  |
-| `npm start`      | `node dist/index.js`                             |
-| `npm run init`   | interactive API-key creation (`scripts/init.ts`) |
-| `npm test`       | `node:test` suites via `tsx`                     |
-| `npm run format` | Biome check + write                              |
+| Script             | Action                                                         |
+| ------------------ | -------------------------------------------------------------- |
+| `npm run dev`      | `tsx watch src/index.ts` (HTTP server: REST/SSE/web)           |
+| `npm run build`    | `tsc` → `dist/`                                                |
+| `npm start`        | `node dist/index.js` (HTTP server)                             |
+| `npm run mcp`      | `tsx src/mcp/stdio.ts` (stdio MCP server)                      |
+| `npm run mcp:start`| `node dist/mcp/stdio.js` (stdio MCP server, built)            |
+| `npm run init`     | create an API key, save it to `.env`, set MCP auth (`init.ts`) |
+| `npm run config`   | interactively edit `PORT` / `DB_PATH` / `MCP_AUTH` in `.env`   |
+| `npm test`         | `tsx --test "src/**/*.test.ts"` (node:test suites)             |
+| `npm run format`   | `biome check --write .`                                        |
 
 ---
 
@@ -500,12 +558,17 @@ Coverage:
 - Keys are stored only as SHA-256 hashes; raw keys are shown once.
 - The `?key=` query option is convenient but can leak into logs/history; prefer
   the header where the client supports it.
-- `MCP_AUTH=off` removes all access control on `/mcp` — use only on a trusted
-  local machine.
+- `MCP_AUTH=off` removes all scope control on the stdio MCP server (every tool
+  runs as `write`) — use only on a trusted local machine. Since the client spawns
+  the process locally and `YOT_API_KEY` is passed through its environment, this
+  selects scope rather than gating network access.
 - CORS is permissive (any origin); the API key is the gate. Tighten the CORS
   policy before exposing the server beyond localhost.
 - The server binds to localhost; remote exposure requires an explicit tunnel and
   should be paired with stricter CORS and header-based auth.
+- `POST /api/internal/events` lets an authenticated write-key holder inject
+  arbitrary change frames to all SSE clients. Acceptable for a localhost
+  single-user tool; it is auth-gated and requires a write-scoped key.
 
 ---
 

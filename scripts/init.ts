@@ -13,7 +13,9 @@ import {
 import { ApiKeyService } from "../src/auth/apikey.js";
 import { openDb } from "../src/db/connection.js";
 
-try { process.loadEnvFile(); } catch {}
+try {
+	process.loadEnvFile();
+} catch {}
 const DB_PATH = process.env.DB_PATH ?? "data.db";
 
 function cancelled(): never {
@@ -69,8 +71,11 @@ async function main() {
 	const mcpAuth = await select({
 		message: "MCP authentication",
 		options: [
-			{ value: "on", label: "on (recommended) — require API key for /mcp" },
-			{ value: "off", label: "off — /mcp open to unauthenticated requests" },
+			{
+				value: "on",
+				label: "on (recommended) — require YOT_API_KEY for the MCP server",
+			},
+			{ value: "off", label: "off — MCP server runs with full write, no key" },
 		],
 	});
 	if (isCancel(mcpAuth)) cancelled();
@@ -79,9 +84,10 @@ async function main() {
 	if (mcpAuth === "off") {
 		note(
 			"⚠️  CRITICAL SECURITY EXPOSURE WARNING  ⚠️\n\n" +
-				"🔴 Setting MCP_AUTH to 'off' leaves the `/mcp` endpoint completely UNPROTECTED.\n\n" +
-				"ANYONE who can reach this port or server URL can read, modify, or\n" +
-				"MALICIOUSLY WIPE your database. Never use this configuration in production.",
+				"🔴 Setting MCP_AUTH to 'off' makes the MCP server run every tool with\n" +
+				"full WRITE scope and no key check.\n\n" +
+				"ANYONE who can launch this server can read, modify, or MALICIOUSLY\n" +
+				"WIPE your database. Never use this configuration in production.",
 			"🚨 DANGER: SECURITY COMPLETELY DISABLED 🚨",
 		);
 
