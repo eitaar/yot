@@ -1,14 +1,20 @@
 <script setup lang="ts">
+import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useSidebar } from "@/composables/useSidebar";
 
 const route = useRoute();
 const router = useRouter();
 const { logout } = useAuth();
+const sidebar = useSidebar();
 
-const linkBase =
-	"rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800";
-const linkActive = "bg-accent/10 text-accent dark:bg-accent/15";
+// Close the mobile drawer whenever the route changes.
+watch(() => route.fullPath, () => sidebar.close());
+
+const linkBase = "btn btn-ghost btn-sm";
+const linkActive = "btn-active text-primary";
 
 async function onLogout() {
 	await logout();
@@ -17,18 +23,21 @@ async function onLogout() {
 </script>
 
 <template>
-	<div
-		class="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
-	>
+	<div class="flex min-h-screen flex-col bg-base-100 text-base-content">
 		<template v-if="route.name !== 'pair'">
-			<header
-				class="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900"
-			>
-				<span class="flex items-center gap-2 font-semibold">
-					<span class="inline-block h-4 w-4 rounded-md bg-accent" />
+			<header class="navbar min-h-0 border-b border-base-300 bg-base-100 px-2 py-1.5">
+				<button
+					class="btn btn-square btn-ghost btn-sm lg:hidden"
+					aria-label="Toggle menu"
+					@click="sidebar.toggle()"
+				>
+					<span aria-hidden="true" class="text-lg">☰</span>
+				</button>
+				<span class="flex items-center gap-2 px-2 font-semibold">
+					<span class="inline-block h-4 w-4 rounded bg-primary" />
 					yot
 				</span>
-				<nav class="ml-2 flex gap-1">
+				<nav class="ml-1 flex gap-1">
 					<RouterLink to="/" :class="linkBase" :exact-active-class="linkActive">
 						Calendar
 					</RouterLink>
@@ -36,12 +45,10 @@ async function onLogout() {
 						List
 					</RouterLink>
 				</nav>
-				<button
-					class="ml-auto rounded-md px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-					@click="onLogout"
-				>
-					Log out
-				</button>
+				<div class="ml-auto flex items-center gap-1">
+					<ThemeToggle />
+					<button class="btn btn-ghost btn-sm" @click="onLogout">Log out</button>
+				</div>
 			</header>
 			<main class="flex min-h-0 flex-1">
 				<RouterView />
