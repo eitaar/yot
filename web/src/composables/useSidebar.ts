@@ -1,7 +1,12 @@
 import { ref } from "vue";
 
-// Shared open/close state for the mobile sidebar drawer.
-const isOpen = ref(false);
+// Open/close state for the filter sidebar. On desktop the sidebar is a
+// collapsible static panel (open by default); on mobile it is a slide-in
+// overlay (closed by default). One shared singleton drives both.
+const desktop =
+	typeof window !== "undefined" &&
+	window.matchMedia("(min-width: 1024px)").matches;
+const isOpen = ref(desktop);
 
 export function useSidebar() {
 	function toggle() {

@@ -18,6 +18,8 @@ const props = defineProps<{
 	event: Event | null;
 	calendars: Calendar[];
 	tags: Tag[];
+	/** Optional create-mode seed (e.g. from clicking an empty calendar slot). */
+	prefill?: { start?: string; end?: string; all_day?: boolean } | null;
 }>();
 const emit = defineEmits<{
 	close: [];
@@ -92,9 +94,9 @@ function fillEmpty() {
 	form.title = "";
 	form.description = "";
 	form.location = "";
-	form.all_day = false;
-	form.start = "";
-	form.end = "";
+	form.all_day = props.prefill?.all_day ?? false;
+	form.start = props.prefill?.start ?? "";
+	form.end = props.prefill?.end ?? "";
 	selectedTagIds.value = new Set();
 }
 

@@ -5,6 +5,7 @@ import type { Event } from "@/api/client";
 import EventModal from "@/components/EventModal.vue";
 import Sidebar from "@/components/Sidebar.vue";
 import { useCalendars } from "@/composables/useCalendars";
+import { useComposer } from "@/composables/useComposer";
 import { useEvents } from "@/composables/useEvents";
 import { useFilters } from "@/composables/useFilters";
 import { useSSE } from "@/composables/useSSE";
@@ -144,6 +145,13 @@ async function onSave(
 		modalRef.value?.setError(msg(e));
 	}
 }
+
+// The bottom dock's "+ New" lives outside this view; it bumps the composer.
+const composer = useComposer();
+watch(
+	() => composer.tick.value,
+	() => openCreate(),
+);
 
 const { connected } = useSSE(refresh);
 onMounted(refresh);

@@ -11,6 +11,7 @@
 		"@lucide/vue": "^1.17.0",
 		"@schedule-x/calendar": "^2.34.0",
 		"@schedule-x/calendar-controls": "^4.6.0",
+		"@schedule-x/current-time": "^2.36.0",
 		"@schedule-x/events-service": "^2.34.0",
 		"@schedule-x/theme-default": "^2.34.0",
 		"@schedule-x/vue": "^2.34.0",
