@@ -24,31 +24,25 @@ async function submit() {
 </script>
 
 <template>
-	<div class="flex min-h-screen items-center justify-center bg-gray-50">
-		<form
-			class="w-80 space-y-4 rounded-lg border bg-white p-6 shadow-sm"
-			@submit.prevent="submit"
-		>
-			<h1 class="text-center text-lg font-semibold">Pair this browser</h1>
-			<p class="text-center text-sm text-gray-500">
-				Run <code class="rounded bg-gray-100 px-1">npm run auth</code> and enter
-				the PIN.
-			</p>
-			<input
-				v-model="pin"
-				inputmode="numeric"
-				maxlength="6"
-				placeholder="6-digit PIN"
-				class="w-full rounded border px-3 py-2 text-center text-2xl tracking-widest"
-			/>
-			<p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-			<button
-				type="submit"
-				:disabled="busy || pin.length < 6"
-				class="w-full rounded bg-blue-600 py-2 text-white disabled:opacity-50"
-			>
-				{{ busy ? "Pairing..." : "Pair" }}
-			</button>
+	<div class="flex min-h-screen items-center justify-center bg-base-200 p-4">
+		<form class="card w-80 bg-base-100 shadow-md" @submit.prevent="submit">
+			<div class="card-body gap-4">
+				<h1 class="text-center text-lg font-semibold">Pair this browser</h1>
+				<p class="text-center text-sm text-base-content/60">
+					Run <code class="rounded bg-base-200 px-1">npm run auth</code> and enter the PIN.
+				</p>
+				<input
+					v-model="pin"
+					inputmode="numeric"
+					maxlength="6"
+					placeholder="6-digit PIN"
+					class="input w-full text-center text-2xl tracking-widest"
+				/>
+				<p v-if="error" class="text-sm text-error">{{ error }}</p>
+				<button type="submit" :disabled="busy || pin.length < 6" class="btn btn-primary w-full">
+					{{ busy ? "Pairing..." : "Pair" }}
+				</button>
+			</div>
 		</form>
 	</div>
 </template>
