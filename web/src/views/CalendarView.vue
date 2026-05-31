@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { CalendarDays, Grid3X3, List, Plus } from "@lucide/vue";
+import {
+	CalendarDays,
+	Grid3X3,
+	List,
+	Plus,
+	SlidersHorizontal,
+} from "@lucide/vue";
 import {
 	type CalendarType,
 	createCalendar,
@@ -15,17 +21,19 @@ import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { ScheduleXCalendar } from "@schedule-x/vue";
 import "@schedule-x/theme-default/dist/index.css";
 import { computed, onMounted, ref, watch } from "vue";
-import type { Event } from "@/api/client";
-import AgendaList from "@/components/AgendaList.vue";
+import type { Event, Tag } from "@/api/client";
 import DateGridEvent from "@/components/calendar/DateGridEvent.vue";
 import MonthAgendaEvent from "@/components/calendar/MonthAgendaEvent.vue";
 import MonthGridEvent from "@/components/calendar/MonthGridEvent.vue";
 import TimeGridEvent from "@/components/calendar/TimeGridEvent.vue";
 import EventModal from "@/components/EventModal.vue";
+import FilterSheet from "@/components/FilterSheet.vue";
+import MobileCalendar from "@/components/MobileCalendar.vue";
 import Sidebar from "@/components/Sidebar.vue";
 import { useCalendars } from "@/composables/useCalendars";
 import { type ComposerPrefill, useComposer } from "@/composables/useComposer";
 import { useEvents } from "@/composables/useEvents";
+import { useFilterSheet } from "@/composables/useFilterSheet";
 import { useFilters } from "@/composables/useFilters";
 import { useIsDesktop } from "@/composables/useMediaQuery";
 import { useSSE } from "@/composables/useSSE";
@@ -67,6 +75,11 @@ const {
 const isDesktop = useIsDesktop();
 const { resolvedTheme } = useTheme();
 const composer = useComposer();
+const filterSheet = useFilterSheet();
+
+async function onCreateTag(name: string, color?: string): Promise<Tag> {
+	return await createTag(name, color);
+}
 
 const modalMode = ref<"create" | "view" | "edit" | null>(null);
 const selected = ref<Event | null>(null);
@@ -315,38 +328,31 @@ onMounted(refresh);
 		<div class="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-4">
 			<!-- Desktop: full Schedule-X grid + controls -->
 			<template v-if="isDesktop">
-				<div class="card border border-base-300 bg-base-100">
-					<div class="card-body gap-3 p-3 sm:p-4">
-						<div class="flex flex-wrap items-center gap-2">
-							<div class="join">
-								<button
-									v-for="view in viewOptions"
-									:key="view.name"
-									type="button"
-									class="btn btn-sm join-item gap-1 px-2"
-									:class="currentView === view.name ? 'btn-primary' : 'btn-ghost'"
-									@click="setCalendarView(view.name)"
-								>
-									<component :is="view.icon" :size="15" aria-hidden="true" />
-									<span>{{ view.label }}</span>
-								</button>
-							</div>
-							<div class="ml-auto flex items-center gap-2 text-xs text-base-content/60">
-								<span class="badge badge-ghost">{{ activeCalendarCount }} calendars</span>
-								<span class="badge badge-ghost">{{ visibleEventsCount }} events</span>
-								<span
-									class="badge"
-									:class="connected ? 'badge-success' : 'badge-error'"
-								>
-									{{ connected ? "Live" : "Offline" }}
-								</span>
-							</div>
-							<button class="btn btn-primary btn-sm gap-1 px-2" @click="openCreate()">
-								<Plus :size="16" aria-hidden="true" />
-								<span>New event</span>
-							</button>
-						</div>
+				<div class="flex flex-wrap items-center gap-2 px-1">
+					<div class="join">
+						<button
+							v-for="vw in viewOptions"
+							:key="vw.name"
+							type="button"
+							class="btn btn-sm join-item gap-1 px-2"
+							:class="currentView === vw.name ? 'btn-primary' : 'btn-ghost'"
+							@click="setCalendarView(vw.name)"
+						>
+							<component :is="vw.icon" :size="15" aria-hidden="true" />
+							<span>{{ vw.label }}</span>
+						</button>
 					</div>
+					<div class="ml-auto flex items-center gap-2 text-xs text-base-content/60">
+						<span class="badge badge-ghost">{{ activeCalendarCount }} calendars</span>
+						<span class="badge badge-ghost">{{ visibleEventsCount }} events</span>
+						<span class="badge" :class="connected ? 'badge-success' : 'badge-error'">
+							{{ connected ? "Live" : "Offline" }}
+						</span>
+					</div>
+					<button class="btn btn-primary btn-sm gap-1 px-2" @click="openCreate()">
+						<Plus :size="16" aria-hidden="true" />
+						<span>New event</span>
+					</button>
 				</div>
 				<div class="calendar-frame">
 					<div class="calendar-scroll">
@@ -358,16 +364,45 @@ onMounted(refresh);
 				</div>
 			</template>
 
-			<!-- Mobile: dedicated agenda day-list -->
-			<AgendaList
-				v-else
-				:events="visibleEvents"
-				:calendars="calendars"
-				:tags="tags"
-				@open="openView"
-			/>
+			<!-- Mobile: month/week grid -->
+			<template v-else>
+				<div class="flex items-center px-1">
+					<button
+						class="btn btn-ghost btn-sm gap-1 px-2"
+						aria-label="Filters"
+						@click="filterSheet.open()"
+					>
+						<SlidersHorizontal :size="16" aria-hidden="true" />
+						<span>Filters</span>
+					</button>
+				</div>
+				<MobileCalendar
+					:events="visibleEvents"
+					:calendars="calendars"
+					:tags="tags"
+					@open="openView"
+					@create="(p) => openCreate(p)"
+				/>
+			</template>
 		</div>
 	</div>
+	<FilterSheet
+		:calendars="calendars"
+		:connected="connected"
+		:tags="tags"
+		:enabled-calendar-ids="enabledCalendarIds"
+		:selected-tag="selectedTag"
+		@toggle-calendar="(id) => toggleCalendar(id)"
+		@set-all="(enabled) => setAllCalendars(enabled)"
+		@select-tag="(name) => setTag(name)"
+		@add-calendar="(name) => addCal(name)"
+		@rename-calendar="(id, name) => updateCal(id, { name })"
+		@recolor-calendar="(id, color) => updateCal(id, { color })"
+		@add-tag="(name, color) => createTag(name, color ?? undefined)"
+		@rename-tag="(id, name) => updateTag(id, { name })"
+		@recolor-tag="(id, color) => updateTag(id, { color })"
+		@delete-tag="(id) => removeTag(id)"
+	/>
 	<EventModal
 		v-if="modalMode"
 		ref="modalRef"
@@ -376,6 +411,7 @@ onMounted(refresh);
 		:event="selected"
 		:calendars="calendars"
 		:tags="tags"
+		:create-tag="onCreateTag"
 		:prefill="createPrefill"
 		@close="closeModal"
 		@create="onCreate"

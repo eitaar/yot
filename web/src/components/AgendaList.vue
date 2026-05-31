@@ -75,26 +75,26 @@ function eventTime(e: Event): string {
 </script>
 
 <template>
-	<div v-if="groups.length" class="flex flex-col gap-1 pb-2">
+	<div v-if="groups.length" class="flex flex-col gap-3 pb-2">
 		<section v-for="g in groups" :key="g.key">
 			<h2
-				class="sticky top-0 z-10 bg-base-100/95 px-1 py-2 text-xs font-semibold uppercase tracking-wide text-base-content/60 backdrop-blur"
+				class="sticky top-0 z-10 bg-base-100/95 px-1 py-2 font-serif text-lg text-base-content/80 backdrop-blur"
 			>
 				{{ g.label }}
 			</h2>
-			<ul class="flex flex-col gap-1.5">
+			<ul class="flex flex-col divide-y divide-base-200">
 				<li v-for="e in g.events" :key="e.id">
 					<button
 						type="button"
-						class="card w-full flex-row items-stretch gap-0 overflow-hidden border border-base-300 bg-base-100 text-left transition-transform hover:bg-base-200 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+						class="flex w-full items-stretch gap-3 rounded-field px-1 py-2.5 text-left transition-colors hover:bg-base-200 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 						@click="emit('open', e)"
 					>
 						<span
-							class="w-1.5 shrink-0"
+							class="w-1 shrink-0 rounded-full"
 							:style="{ background: calColor(e.calendar_id) }"
 							aria-hidden="true"
 						/>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2.5">
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5 py-0.5">
 							<span class="flex items-center justify-between gap-2">
 								<span class="truncate font-medium">{{ e.title }}</span>
 								<span class="shrink-0 text-xs tabular-nums text-base-content/60">
@@ -123,9 +123,7 @@ function eventTime(e: Event): string {
 			</ul>
 		</section>
 	</div>
-	<div v-else class="card border border-base-300 bg-base-100">
-		<div class="card-body items-center py-10 text-sm text-base-content/50">
-			No upcoming events.
-		</div>
+	<div v-else class="py-16 text-center text-sm text-base-content/50">
+		No upcoming events.
 	</div>
 </template>

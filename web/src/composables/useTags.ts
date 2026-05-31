@@ -9,8 +9,9 @@ export function useTags() {
 		tags.value = await api.listTags();
 	}
 	async function create(name: string, color?: string) {
-		await api.createTag({ name, ...(color ? { color } : {}) });
+		const tag = await api.createTag({ name, ...(color ? { color } : {}) });
 		await load();
+		return tag;
 	}
 	async function update(id: string, input: TagUpdate) {
 		await api.updateTag(id, input);

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Check, MapPin, Pencil, X } from "@lucide/vue";
+import { Check, MapPin, Pencil, Plus, X } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
+import ColorPicker from "@/components/ColorPicker.vue";
 
 type CreateInput = {
 	calendar_id: string;
@@ -18,6 +19,9 @@ const props = defineProps<{
 	event: Event | null;
 	calendars: Calendar[];
 	tags: Tag[];
+	/** Creates a tag and resolves to it, so it can be auto-selected. Optional
+	 * so the modal builds even if a caller doesn't wire it. */
+	createTag?: (name: string, color?: string) => Promise<Tag>;
 	/** Optional create-mode seed (e.g. from clicking an empty calendar slot). */
 	prefill?: { start?: string; end?: string; all_day?: boolean } | null;
 }>();
@@ -42,6 +46,11 @@ const form = reactive({
 });
 const selectedTagIds = ref(new Set<string>());
 
+const showNewTag = ref(false);
+const newTagName = ref("");
+const newTagColor = ref<string | null>("#10b981");
+const creatingTag = ref(false);
+
 const calendar = computed(() =>
 	props.calendars.find((c) => c.id === props.event?.calendar_id),
 );
@@ -56,13 +65,13 @@ const dateRange = computed(() => {
 	if (e.all_day) {
 		const sd = e.start_at.slice(0, 10);
 		const ed = e.end_at.slice(0, 10);
-		return sd === ed ? sd : `${sd} – ${ed}`;
+		return sd === ed ? sd : `${sd} - ${ed}`;
 	}
 	const s = new Date(e.start_at);
 	const en = new Date(e.end_at);
 	const time = (d: Date) =>
 		d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-	return `${s.toLocaleDateString()} ${time(s)} – ${time(en)}`;
+	return `${s.toLocaleDateString()} ${time(s)} - ${time(en)}`;
 });
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -119,6 +128,26 @@ function onAllDayToggle() {
 function toggleTag(id: string) {
 	if (selectedTagIds.value.has(id)) selectedTagIds.value.delete(id);
 	else selectedTagIds.value.add(id);
+}
+
+async function submitNewTag() {
+	const create = props.createTag;
+	if (!create) return;
+	const name = newTagName.value.trim();
+	if (!name) return;
+	creatingTag.value = true;
+	error.value = "";
+	try {
+		const t = await create(name, newTagColor.value ?? undefined);
+		selectedTagIds.value.add(t.id);
+		newTagName.value = "";
+		newTagColor.value = "#10b981";
+		showNewTag.value = false;
+	} catch (e) {
+		error.value = e instanceof Error ? e.message : String(e);
+	} finally {
+		creatingTag.value = false;
+	}
 }
 
 function submit() {
@@ -190,19 +219,13 @@ onMounted(() => {
 	else if (props.mode === "edit" && props.event) fillFromEvent(props.event);
 });
 onUnmounted(() => window.removeEventListener("keydown", onKey));
-
-const fieldClass = "w-full";
-const labelClass = "text-xs font-medium text-base-content/60";
 </script>
 
 <template>
-	<div
-		class="modal modal-open"
-		@click.self="emit('close')"
-	>
+	<div class="modal modal-open modal-bottom sm:modal-middle" @click.self="emit('close')">
 		<div class="modal-box max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto">
-			<div class="mb-3 flex items-start justify-between gap-2">
-				<h2 class="text-lg font-semibold">{{ title }}</h2>
+			<div class="mb-4 flex items-start justify-between gap-2">
+				<h2 class="font-serif text-2xl leading-tight">{{ title }}</h2>
 				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
 					<X :size="18" aria-hidden="true" />
 					<span class="sr-only">Close</span>
@@ -213,7 +236,7 @@ const labelClass = "text-xs font-medium text-base-content/60";
 			<div v-if="localMode === 'view' && event" class="space-y-3">
 				<div class="flex items-center gap-2 text-sm text-base-content/70">
 					<span
-						class="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
+						class="inline-block h-3 w-3 rounded-full"
 						:style="{ background: calendar?.color ?? 'oklch(0.7 0.04 256)' }"
 					/>
 					<span>{{ calendar?.name ?? "Unknown calendar" }}</span>
@@ -249,78 +272,108 @@ const labelClass = "text-xs font-medium text-base-content/60";
 			</div>
 
 			<!-- Create / edit form -->
-			<form v-else class="space-y-3" @submit.prevent="submit">
-				<label class="block space-y-1">
-					<span :class="labelClass">Title</span>
+			<form v-else class="flex flex-col gap-2" @submit.prevent="submit">
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Title</legend>
 					<input v-model="form.title" required class="input w-full" />
-				</label>
-				<label class="block space-y-1">
-					<span :class="labelClass">Calendar</span>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Calendar</legend>
 					<select v-model="form.calendar_id" required class="select w-full">
 						<option v-for="c in calendars" :key="c.id" :value="c.id">{{ c.name }}</option>
 					</select>
-				</label>
-				<label class="flex cursor-pointer items-center gap-2 text-sm">
+				</fieldset>
+				<label class="label cursor-pointer justify-start gap-2">
 					<input
 						v-model="form.all_day"
 						type="checkbox"
 						class="checkbox checkbox-primary checkbox-sm"
 						@change="onAllDayToggle"
 					/>
-					All day
+					<span class="label-text">All day</span>
 				</label>
 				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-					<label class="block flex-1 space-y-1">
-						<span :class="labelClass">Start</span>
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">Start</legend>
 						<input
 							v-model="form.start"
 							:type="form.all_day ? 'date' : 'datetime-local'"
 							required
 							class="input w-full"
 						/>
-					</label>
-					<label class="block flex-1 space-y-1">
-						<span :class="labelClass">End</span>
+					</fieldset>
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">End</legend>
 						<input
 							v-model="form.end"
 							:type="form.all_day ? 'date' : 'datetime-local'"
 							required
 							class="input w-full"
 						/>
-					</label>
+					</fieldset>
 				</div>
-				<label class="block space-y-1">
-					<span :class="labelClass">Location</span>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Location</legend>
 					<input v-model="form.location" class="input w-full" />
-				</label>
-				<label class="block space-y-1">
-					<span :class="labelClass">Description</span>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Description</legend>
 					<textarea v-model="form.description" rows="3" class="textarea w-full" />
-				</label>
-				<div v-if="tags.length" class="space-y-1">
-					<span :class="labelClass">Tags</span>
-					<div class="flex flex-wrap gap-1">
+				</fieldset>
+
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Tags</legend>
+					<div class="flex flex-wrap gap-1.5">
 						<button
 							v-for="t in tags"
 							:key="t.id"
 							type="button"
-							class="rounded-full border px-2.5 py-1 text-xs transition"
+							class="btn btn-xs gap-1 rounded-full"
+							:class="selectedTagIds.has(t.id) ? '' : 'btn-ghost'"
 							:style="
 								selectedTagIds.has(t.id)
-									? {
-											background: t.color ?? 'oklch(0.45 0.03 256)',
-											borderColor: t.color ?? 'oklch(0.45 0.03 256)',
-											color: '#fff',
-										}
-									: { borderColor: t.color ?? 'var(--color-base-300)' }
+									? { background: t.color ?? 'oklch(0.45 0.03 256)', color: '#fff' }
+									: {}
 							"
-							:class="selectedTagIds.has(t.id) ? '' : 'text-base-content/70'"
 							@click="toggleTag(t.id)"
 						>
+							<span
+								class="inline-block h-2 w-2 rounded-full"
+								:style="{ background: t.color ?? 'oklch(0.7 0.04 256)' }"
+							/>
 							{{ t.name }}
 						</button>
+						<button
+							v-if="createTag"
+							type="button"
+							class="btn btn-xs btn-ghost gap-1 rounded-full border border-dashed border-base-300"
+							@click="showNewTag = !showNewTag"
+						>
+							<Plus :size="13" aria-hidden="true" />
+							New tag
+						</button>
 					</div>
-				</div>
+					<div v-if="showNewTag" class="mt-2 space-y-2 rounded-box bg-base-200 p-3">
+						<div class="join w-full">
+							<input
+								v-model="newTagName"
+								placeholder="Tag name"
+								class="input input-sm join-item w-full"
+								@keyup.enter.prevent="submitNewTag"
+							/>
+							<button
+								type="button"
+								class="btn btn-primary btn-sm join-item"
+								:disabled="creatingTag"
+								aria-label="Create tag"
+								@click="submitNewTag"
+							>
+								<Check :size="15" aria-hidden="true" />
+							</button>
+						</div>
+						<ColorPicker v-model="newTagColor" />
+					</div>
+				</fieldset>
 
 				<p v-if="error" class="text-sm text-error">{{ error }}</p>
 
@@ -328,7 +381,7 @@ const labelClass = "text-xs font-medium text-base-content/60";
 					<button type="button" class="btn btn-ghost btn-sm" @click="emit('close')">
 						Cancel
 					</button>
-					<button :disabled="busy" class="btn btn-primary btn-sm">
+					<button :disabled="busy" class="btn btn-primary btn-sm gap-1">
 						<Check v-if="localMode !== 'create'" :size="15" aria-hidden="true" />
 						{{ localMode === "create" ? "Create" : "Save" }}
 					</button>
