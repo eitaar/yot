@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { CalendarDays, List, LogOut, Menu } from "@lucide/vue";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useSidebar } from "@/composables/useSidebar";
@@ -16,7 +18,7 @@ watch(
 	() => sidebar.close(),
 );
 
-const linkBase = "btn btn-ghost btn-sm";
+const linkBase = "btn btn-ghost btn-sm gap-1 px-2";
 const linkActive = "btn-active text-primary";
 
 async function onLogout() {
@@ -32,9 +34,10 @@ async function onLogout() {
 				<button
 					class="btn btn-square btn-ghost btn-sm lg:hidden"
 					aria-label="Toggle menu"
+					:aria-expanded="sidebar.isOpen.value"
 					@click="sidebar.toggle()"
 				>
-					<span aria-hidden="true" class="text-lg">☰</span>
+					<Menu :size="18" aria-hidden="true" />
 				</button>
 				<span class="flex items-center gap-2 px-2 font-semibold">
 					<span class="inline-block h-4 w-4 rounded bg-primary" />
@@ -42,15 +45,21 @@ async function onLogout() {
 				</span>
 				<nav class="ml-1 flex gap-1">
 					<RouterLink to="/" :class="linkBase" :exact-active-class="linkActive">
-						Calendar
+						<CalendarDays :size="16" aria-hidden="true" />
+						<span class="hidden sm:inline">Calendar</span>
 					</RouterLink>
 					<RouterLink to="/list" :class="linkBase" :exact-active-class="linkActive">
-						List
+						<List :size="16" aria-hidden="true" />
+						<span class="hidden sm:inline">List</span>
 					</RouterLink>
 				</nav>
 				<div class="ml-auto flex items-center gap-1">
+					<PWAInstallButton />
 					<ThemeToggle />
-					<button class="btn btn-ghost btn-sm" @click="onLogout">Log out</button>
+					<button class="btn btn-ghost btn-sm gap-1 px-2" @click="onLogout">
+						<LogOut :size="16" aria-hidden="true" />
+						<span class="hidden sm:inline">Log out</span>
+					</button>
 				</div>
 			</header>
 			<main class="flex min-h-0 flex-1">

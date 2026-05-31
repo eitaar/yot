@@ -12,6 +12,7 @@
 .mcp.json
 .superpowers
 .docs
+.codex
 # deps
 node_modules/
 
