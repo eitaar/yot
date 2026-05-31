@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import type { Calendar, Tag } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
 import Popover from "@/components/Popover.vue";
+import { useSidebar } from "@/composables/useSidebar";
 
 const props = defineProps<{
 	calendars: Calendar[];
@@ -23,6 +24,8 @@ const emit = defineEmits<{
 	"recolor-tag": [id: string, color: string];
 	"delete-tag": [id: string];
 }>();
+
+const { isOpen, close } = useSidebar();
 
 const allEnabled = computed(
 	() =>
@@ -59,24 +62,27 @@ function renameFromForm(e: globalThis.Event): string {
 	return input.value.trim();
 }
 
-function confirmDeleteTag(t: Tag, close: () => void) {
+function confirmDeleteTag(t: Tag, closePopover: () => void) {
 	if (window.confirm(`Delete tag "${t.name}"? Events keep their other tags.`)) {
 		emit("delete-tag", t.id);
-		close();
+		closePopover();
 	}
 }
 
 const sectionHeader =
-	"text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500";
-const fieldClass =
-	"w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100";
-const iconBtn =
-	"rounded-md px-1.5 py-0.5 text-slate-400 opacity-0 transition hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-700 dark:hover:text-slate-200";
+	"text-xs font-semibold uppercase tracking-wide text-base-content/50";
 </script>
 
 <template>
+	<!-- Mobile backdrop -->
+	<div
+		v-if="isOpen"
+		class="fixed inset-0 z-30 bg-black/40 lg:hidden"
+		@click="close()"
+	/>
 	<aside
-		class="flex w-56 shrink-0 flex-col gap-6 border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900"
+		class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col gap-6 overflow-y-auto border-r border-base-300 bg-base-100 px-3 py-4 transition-transform lg:static lg:z-auto lg:w-64 lg:translate-x-0"
+		:class="{ 'translate-x-0': isOpen }"
 	>
 		<!-- Calendars -->
 		<section class="space-y-2">
@@ -84,7 +90,7 @@ const iconBtn =
 				<h2 :class="sectionHeader">Calendars</h2>
 				<button
 					v-if="calendars.length"
-					class="text-xs font-medium text-accent hover:text-accent-hover"
+					class="btn btn-ghost btn-xs text-primary"
 					@click="emit('set-all', !allEnabled)"
 				>
 					{{ allEnabled ? "None" : "All" }}
@@ -94,24 +100,28 @@ const iconBtn =
 				<li
 					v-for="c in calendars"
 					:key="c.id"
-					class="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+					class="group flex items-center gap-2 rounded-field px-2 py-1 hover:bg-base-200"
 				>
 					<label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
 						<input
 							type="checkbox"
-							class="h-4 w-4 shrink-0 accent-emerald-600 dark:accent-emerald-400"
+							class="checkbox checkbox-primary checkbox-sm shrink-0"
 							:checked="enabledCalendarIds.has(c.id)"
 							@change="emit('toggle-calendar', c.id)"
 						/>
 						<span
-							class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-							:style="{ background: c.color ?? '#94a3b8' }"
+							class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10"
+							:style="{ background: c.color ?? 'oklch(0.7 0.04 256)' }"
 						/>
 						<span class="truncate text-sm">{{ c.name }}</span>
 					</label>
 					<Popover align="right">
 						<template #trigger="{ toggle }">
-							<button :class="iconBtn" aria-label="Calendar options" @click="toggle">
+							<button
+								class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
+								aria-label="Calendar options"
+								@click="toggle"
+							>
 								⋯
 							</button>
 						</template>
@@ -122,13 +132,9 @@ const iconBtn =
 									@submit.prevent="emit('rename-calendar', c.id, renameFromForm($event))"
 								>
 									<span :class="sectionHeader">Rename</span>
-									<div class="flex gap-1">
-										<input name="name" :value="c.name" :class="fieldClass" />
-										<button
-											class="rounded-md bg-accent px-2 text-sm text-white hover:bg-accent-hover"
-										>
-											✓
-										</button>
+									<div class="join w-full">
+										<input name="name" :value="c.name" class="input input-sm join-item w-full" />
+										<button class="btn btn-primary btn-sm join-item">✓</button>
 									</div>
 								</form>
 								<div class="space-y-1">
@@ -143,17 +149,13 @@ const iconBtn =
 					</Popover>
 				</li>
 			</ul>
-			<form class="flex gap-1 pt-1" @submit.prevent="addCalendar">
+			<form class="join w-full pt-1" @submit.prevent="addCalendar">
 				<input
 					v-model="newCalName"
 					placeholder="New calendar"
-					:class="fieldClass"
+					class="input input-sm join-item w-full"
 				/>
-				<button
-					class="shrink-0 rounded-md bg-slate-200 px-2 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-				>
-					＋
-				</button>
+				<button class="btn btn-neutral btn-sm join-item">＋</button>
 			</form>
 		</section>
 
@@ -161,51 +163,47 @@ const iconBtn =
 		<section class="space-y-2">
 			<h2 :class="sectionHeader">Tags</h2>
 			<ul v-if="tags.length" class="space-y-0.5">
-				<li
-					v-for="t in tags"
-					:key="t.id"
-					class="group flex items-center gap-1"
-				>
+				<li v-for="t in tags" :key="t.id" class="group flex items-center gap-1">
 					<button
 						class="flex min-w-0 flex-1 items-center gap-2 rounded-full border px-2.5 py-1 text-left text-sm transition"
 						:style="
 							selectedTag === t.name
 								? {
-										background: t.color ?? '#475569',
-										borderColor: t.color ?? '#475569',
+										background: t.color ?? 'oklch(0.45 0.03 256)',
+										borderColor: t.color ?? 'oklch(0.45 0.03 256)',
 										color: '#fff',
 									}
-								: { borderColor: t.color ?? '#cbd5e1' }
+								: { borderColor: t.color ?? 'var(--color-base-300)' }
 						"
-						:class="selectedTag === t.name ? '' : 'text-slate-700 dark:text-slate-200'"
+						:class="selectedTag === t.name ? '' : 'text-base-content'"
 						@click="clickTag(t.name)"
 					>
 						<span
 							class="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-							:style="{ background: t.color ?? '#94a3b8' }"
+							:style="{ background: t.color ?? 'oklch(0.7 0.04 256)' }"
 						/>
 						<span class="truncate">{{ t.name }}</span>
 					</button>
 					<Popover align="right">
 						<template #trigger="{ toggle }">
-							<button :class="iconBtn" aria-label="Tag options" @click="toggle">
+							<button
+								class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
+								aria-label="Tag options"
+								@click="toggle"
+							>
 								⋯
 							</button>
 						</template>
-						<template #panel="{ close }">
+						<template #panel="{ close: closePopover }">
 							<div class="space-y-3">
 								<form
 									class="space-y-1"
 									@submit.prevent="emit('rename-tag', t.id, renameFromForm($event))"
 								>
 									<span :class="sectionHeader">Rename</span>
-									<div class="flex gap-1">
-										<input name="name" :value="t.name" :class="fieldClass" />
-										<button
-											class="rounded-md bg-accent px-2 text-sm text-white hover:bg-accent-hover"
-										>
-											✓
-										</button>
+									<div class="join w-full">
+										<input name="name" :value="t.name" class="input input-sm join-item w-full" />
+										<button class="btn btn-primary btn-sm join-item">✓</button>
 									</div>
 								</form>
 								<div class="space-y-1">
@@ -216,8 +214,8 @@ const iconBtn =
 									/>
 								</div>
 								<button
-									class="w-full rounded-md border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-									@click="confirmDeleteTag(t, close)"
+									class="btn btn-error btn-outline btn-sm w-full"
+									@click="confirmDeleteTag(t, closePopover)"
 								>
 									Delete tag
 								</button>
@@ -226,16 +224,12 @@ const iconBtn =
 					</Popover>
 				</li>
 			</ul>
-			<p v-else class="text-xs text-slate-400 dark:text-slate-500">(no tags)</p>
+			<p v-else class="text-xs text-base-content/40">(no tags)</p>
 
 			<form class="space-y-2 pt-1" @submit.prevent="addTag">
-				<div class="flex gap-1">
-					<input v-model="newTagName" placeholder="New tag" :class="fieldClass" />
-					<button
-						class="shrink-0 rounded-md bg-slate-200 px-2 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-					>
-						＋
-					</button>
+				<div class="join w-full">
+					<input v-model="newTagName" placeholder="New tag" class="input input-sm join-item w-full" />
+					<button class="btn btn-neutral btn-sm join-item">＋</button>
 				</div>
 				<ColorPicker v-model="newTagColor" />
 			</form>
@@ -245,11 +239,9 @@ const iconBtn =
 		<div class="mt-auto flex items-center gap-2 text-xs">
 			<span
 				class="inline-block h-2 w-2 rounded-full"
-				:class="connected ? 'bg-emerald-500' : 'bg-red-500'"
+				:class="connected ? 'bg-success' : 'bg-error'"
 			/>
-			<span class="text-slate-500 dark:text-slate-400">{{
-				connected ? "Live" : "Offline"
-			}}</span>
+			<span class="text-base-content/60">{{ connected ? "Live" : "Offline" }}</span>
 		</div>
 	</aside>
 </template>
