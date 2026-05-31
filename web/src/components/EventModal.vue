@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check, MapPin, Pencil, X } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
 
@@ -17,6 +18,8 @@ const props = defineProps<{
 	event: Event | null;
 	calendars: Calendar[];
 	tags: Tag[];
+	/** Optional create-mode seed (e.g. from clicking an empty calendar slot). */
+	prefill?: { start?: string; end?: string; all_day?: boolean } | null;
 }>();
 const emit = defineEmits<{
 	close: [];
@@ -91,9 +94,9 @@ function fillEmpty() {
 	form.title = "";
 	form.description = "";
 	form.location = "";
-	form.all_day = false;
-	form.start = "";
-	form.end = "";
+	form.all_day = props.prefill?.all_day ?? false;
+	form.start = props.prefill?.start ?? "";
+	form.end = props.prefill?.end ?? "";
 	selectedTagIds.value = new Set();
 }
 
@@ -197,11 +200,12 @@ const labelClass = "text-xs font-medium text-base-content/60";
 		class="modal modal-open"
 		@click.self="emit('close')"
 	>
-		<div class="modal-box w-full max-w-md">
+		<div class="modal-box max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto">
 			<div class="mb-3 flex items-start justify-between gap-2">
 				<h2 class="text-lg font-semibold">{{ title }}</h2>
 				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
-					✕
+					<X :size="18" aria-hidden="true" />
+					<span class="sr-only">Close</span>
 				</button>
 			</div>
 
@@ -218,7 +222,10 @@ const labelClass = "text-xs font-medium text-base-content/60";
 					{{ dateRange }}
 					<span v-if="event.all_day" class="ml-1 text-xs text-base-content/50">(all day)</span>
 				</p>
-				<p v-if="event.location" class="text-sm">📍 {{ event.location }}</p>
+				<p v-if="event.location" class="flex items-center gap-1 text-sm">
+					<MapPin :size="14" aria-hidden="true" />
+					{{ event.location }}
+				</p>
 				<p v-if="event.description" class="whitespace-pre-wrap text-sm">
 					{{ event.description }}
 				</p>
@@ -234,7 +241,10 @@ const labelClass = "text-xs font-medium text-base-content/60";
 				</div>
 				<div class="modal-action">
 					<button class="btn btn-ghost btn-sm" @click="emit('close')">Close</button>
-					<button class="btn btn-primary btn-sm" @click="startEdit">Edit</button>
+					<button class="btn btn-primary btn-sm gap-1" @click="startEdit">
+						<Pencil :size="15" aria-hidden="true" />
+						Edit
+					</button>
 				</div>
 			</div>
 
@@ -259,7 +269,7 @@ const labelClass = "text-xs font-medium text-base-content/60";
 					/>
 					All day
 				</label>
-				<div class="flex gap-2">
+				<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 					<label class="block flex-1 space-y-1">
 						<span :class="labelClass">Start</span>
 						<input
@@ -319,6 +329,7 @@ const labelClass = "text-xs font-medium text-base-content/60";
 						Cancel
 					</button>
 					<button :disabled="busy" class="btn btn-primary btn-sm">
+						<Check v-if="localMode !== 'create'" :size="15" aria-hidden="true" />
 						{{ localMode === "create" ? "Create" : "Save" }}
 					</button>
 				</div>

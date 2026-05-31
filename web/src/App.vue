@@ -1,22 +1,30 @@
 <script setup lang="ts">
+import { CalendarDays, List, LogOut, Menu } from "@lucide/vue";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import BottomDock from "@/components/BottomDock.vue";
+import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useIsDesktop } from "@/composables/useMediaQuery";
 import { useSidebar } from "@/composables/useSidebar";
 
 const route = useRoute();
 const router = useRouter();
 const { logout } = useAuth();
 const sidebar = useSidebar();
+const isDesktop = useIsDesktop();
 
-// Close the mobile drawer whenever the route changes.
+// On mobile the sidebar is an overlay → close it on navigation. On desktop it's
+// a docked panel, so leave it as the user set it.
 watch(
 	() => route.fullPath,
-	() => sidebar.close(),
+	() => {
+		if (!isDesktop.value) sidebar.close();
+	},
 );
 
-const linkBase = "btn btn-ghost btn-sm";
+const linkBase = "btn btn-ghost btn-sm gap-1 px-2";
 const linkActive = "btn-active text-primary";
 
 async function onLogout() {
@@ -30,32 +38,43 @@ async function onLogout() {
 		<template v-if="route.name !== 'pair'">
 			<header class="navbar min-h-0 border-b border-base-300 bg-base-100 px-2 py-1.5">
 				<button
-					class="btn btn-square btn-ghost btn-sm lg:hidden"
-					aria-label="Toggle menu"
+					class="btn btn-square btn-ghost btn-sm"
+					aria-label="Toggle sidebar"
+					:aria-expanded="sidebar.isOpen.value"
 					@click="sidebar.toggle()"
 				>
-					<span aria-hidden="true" class="text-lg">☰</span>
+					<Menu :size="18" aria-hidden="true" />
 				</button>
 				<span class="flex items-center gap-2 px-2 font-semibold">
 					<span class="inline-block h-4 w-4 rounded bg-primary" />
 					yot
 				</span>
-				<nav class="ml-1 flex gap-1">
+				<!-- Desktop top-nav; on mobile these live in the bottom dock. -->
+				<nav class="ml-1 hidden gap-1 lg:flex">
 					<RouterLink to="/" :class="linkBase" :exact-active-class="linkActive">
-						Calendar
+						<CalendarDays :size="16" aria-hidden="true" />
+						<span>Calendar</span>
 					</RouterLink>
 					<RouterLink to="/list" :class="linkBase" :exact-active-class="linkActive">
-						List
+						<List :size="16" aria-hidden="true" />
+						<span>List</span>
 					</RouterLink>
 				</nav>
-				<div class="ml-auto flex items-center gap-1">
+				<div class="ml-auto hidden items-center gap-1 lg:flex">
+					<PWAInstallButton />
 					<ThemeToggle />
-					<button class="btn btn-ghost btn-sm" @click="onLogout">Log out</button>
+					<button class="btn btn-ghost btn-sm gap-1 px-2" @click="onLogout">
+						<LogOut :size="16" aria-hidden="true" />
+						<span>Log out</span>
+					</button>
 				</div>
 			</header>
-			<main class="flex min-h-0 flex-1">
+			<main
+				class="flex min-h-0 flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"
+			>
 				<RouterView />
 			</main>
+			<BottomDock />
 		</template>
 		<RouterView v-else />
 	</div>

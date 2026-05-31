@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { Monitor, Moon, Sun } from "@lucide/vue";
 import { useTheme } from "@/composables/useTheme";
 
 const { mode, setMode } = useTheme();
 
 const options = [
-	{ value: "light", label: "Light", icon: "☀" },
-	{ value: "dark", label: "Dark", icon: "☾" },
-	{ value: "system", label: "System", icon: "🖥" },
+	{ value: "light", label: "Light", icon: Sun },
+	{ value: "dark", label: "Dark", icon: Moon },
+	{ value: "system", label: "System", icon: Monitor },
 ] as const;
 </script>
 
@@ -22,7 +23,7 @@ const options = [
 			:aria-pressed="mode === o.value"
 			@click="setMode(o.value)"
 		>
-			<span aria-hidden="true">{{ o.icon }}</span>
+			<component :is="o.icon" :size="15" aria-hidden="true" />
 			<span class="sr-only">{{ o.label }}</span>
 		</button>
 	</div>

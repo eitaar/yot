@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { Check, MoreHorizontal, Plus, Trash2 } from "@lucide/vue";
 import { computed, ref } from "vue";
 import type { Calendar, Tag } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
-import Popover from "@/components/Popover.vue";
 import { useSidebar } from "@/composables/useSidebar";
 
 const props = defineProps<{
@@ -62,27 +62,50 @@ function renameFromForm(e: globalThis.Event): string {
 	return input.value.trim();
 }
 
-function confirmDeleteTag(t: Tag, closePopover: () => void) {
+// DaisyUI dropdowns open on focus; blurring closes them after an action.
+function blurActive() {
+	(document.activeElement as HTMLElement | null)?.blur();
+}
+
+function submitRenameCalendar(id: string, e: globalThis.Event) {
+	emit("rename-calendar", id, renameFromForm(e));
+	blurActive();
+}
+
+function submitRenameTag(id: string, e: globalThis.Event) {
+	emit("rename-tag", id, renameFromForm(e));
+	blurActive();
+}
+
+function confirmDeleteTag(t: Tag) {
 	if (window.confirm(`Delete tag "${t.name}"? Events keep their other tags.`)) {
 		emit("delete-tag", t.id);
-		closePopover();
 	}
+	blurActive();
 }
 
 const sectionHeader =
 	"text-xs font-semibold uppercase tracking-wide text-base-content/50";
+const optionsTrigger =
+	"btn btn-ghost btn-xs opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100";
+const optionsPanel =
+	"dropdown-content z-30 mt-1 w-56 rounded-box border border-base-300 bg-base-100 p-3 shadow-lg";
 </script>
 
 <template>
-	<!-- Mobile backdrop -->
+	<!-- Mobile backdrop (desktop sidebar is a docked panel, never dimmed) -->
 	<div
 		v-if="isOpen"
 		class="fixed inset-0 z-30 bg-black/40 lg:hidden"
 		@click="close()"
 	/>
 	<aside
-		class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col gap-6 overflow-y-auto border-r border-base-300 bg-base-100 px-3 py-4 transition-transform lg:static lg:z-auto lg:w-64 lg:translate-x-0"
-		:class="{ 'translate-x-0': isOpen }"
+		class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col gap-5 overflow-y-auto border-r border-base-300 bg-base-100 px-3 py-4 transition-[transform,width] lg:static lg:z-auto lg:translate-x-0"
+		:class="{
+			'translate-x-0': isOpen,
+			'lg:w-64': isOpen,
+			'lg:w-0 lg:overflow-hidden lg:border-r-0 lg:px-0': !isOpen,
+		}"
 	>
 		<!-- Calendars -->
 		<section class="space-y-2">
@@ -96,57 +119,63 @@ const sectionHeader =
 					{{ allEnabled ? "None" : "All" }}
 				</button>
 			</div>
-			<ul class="space-y-0.5">
-				<li
-					v-for="c in calendars"
-					:key="c.id"
-					class="group flex items-center gap-2 rounded-field px-2 py-1 hover:bg-base-200"
-				>
-					<label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
-						<input
-							type="checkbox"
-							class="checkbox checkbox-primary checkbox-sm shrink-0"
-							:checked="enabledCalendarIds.has(c.id)"
-							@change="emit('toggle-calendar', c.id)"
-						/>
-						<span
-							class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10"
-							:style="{ background: c.color ?? 'oklch(0.7 0.04 256)' }"
-						/>
-						<span class="truncate text-sm">{{ c.name }}</span>
-					</label>
-					<Popover align="right">
-						<template #trigger="{ toggle }">
-							<button
-								class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
+			<ul class="menu w-full p-0">
+				<li v-for="c in calendars" :key="c.id" class="group">
+					<div class="flex items-center gap-1 rounded-field hover:bg-base-200">
+						<label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-primary checkbox-sm shrink-0"
+								:checked="enabledCalendarIds.has(c.id)"
+								@change="emit('toggle-calendar', c.id)"
+							/>
+							<span
+								class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10"
+								:style="{ background: c.color ?? 'oklch(0.7 0.04 256)' }"
+							/>
+							<span class="truncate text-sm">{{ c.name }}</span>
+						</label>
+						<div class="dropdown dropdown-end">
+							<div
+								tabindex="0"
+								role="button"
+								:class="optionsTrigger"
 								aria-label="Calendar options"
-								@click="toggle"
 							>
-								⋯
-							</button>
-						</template>
-						<template #panel>
-							<div class="space-y-3">
-								<form
-									class="space-y-1"
-									@submit.prevent="emit('rename-calendar', c.id, renameFromForm($event))"
-								>
-									<span :class="sectionHeader">Rename</span>
-									<div class="join w-full">
-										<input name="name" :value="c.name" class="input input-sm join-item w-full" />
-										<button class="btn btn-primary btn-sm join-item">✓</button>
+								<MoreHorizontal :size="15" aria-hidden="true" />
+							</div>
+							<div tabindex="0" :class="optionsPanel">
+								<div class="space-y-3">
+									<form
+										class="space-y-1"
+										@submit.prevent="submitRenameCalendar(c.id, $event)"
+									>
+										<span :class="sectionHeader">Rename</span>
+										<div class="join w-full">
+											<input
+												name="name"
+												:value="c.name"
+												class="input input-sm join-item w-full"
+											/>
+											<button
+												class="btn btn-primary btn-sm join-item"
+												aria-label="Save calendar name"
+											>
+												<Check :size="15" aria-hidden="true" />
+											</button>
+										</div>
+									</form>
+									<div class="space-y-1">
+										<span :class="sectionHeader">Color</span>
+										<ColorPicker
+											:model-value="c.color"
+											@update:model-value="(col) => emit('recolor-calendar', c.id, col)"
+										/>
 									</div>
-								</form>
-								<div class="space-y-1">
-									<span :class="sectionHeader">Color</span>
-									<ColorPicker
-										:model-value="c.color"
-										@update:model-value="(col) => emit('recolor-calendar', c.id, col)"
-									/>
 								</div>
 							</div>
-						</template>
-					</Popover>
+						</div>
+					</div>
 				</li>
 			</ul>
 			<form class="join w-full pt-1" @submit.prevent="addCalendar">
@@ -155,7 +184,9 @@ const sectionHeader =
 					placeholder="New calendar"
 					class="input input-sm join-item w-full"
 				/>
-				<button class="btn btn-neutral btn-sm join-item">＋</button>
+				<button class="btn btn-neutral btn-sm join-item" aria-label="Add calendar">
+					<Plus :size="15" aria-hidden="true" />
+				</button>
 			</form>
 		</section>
 
@@ -165,7 +196,7 @@ const sectionHeader =
 			<ul v-if="tags.length" class="space-y-0.5">
 				<li v-for="t in tags" :key="t.id" class="group flex items-center gap-1">
 					<button
-						class="flex min-w-0 flex-1 items-center gap-2 rounded-full border px-2.5 py-1 text-left text-sm transition"
+						class="btn btn-outline btn-sm min-w-0 flex-1 justify-start gap-2 rounded-full px-2.5 font-normal"
 						:style="
 							selectedTag === t.name
 								? {
@@ -184,26 +215,31 @@ const sectionHeader =
 						/>
 						<span class="truncate">{{ t.name }}</span>
 					</button>
-					<Popover align="right">
-						<template #trigger="{ toggle }">
-							<button
-								class="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100"
-								aria-label="Tag options"
-								@click="toggle"
-							>
-								⋯
-							</button>
-						</template>
-						<template #panel="{ close: closePopover }">
+					<div class="dropdown dropdown-end">
+						<div
+							tabindex="0"
+							role="button"
+							:class="optionsTrigger"
+							aria-label="Tag options"
+						>
+							<MoreHorizontal :size="15" aria-hidden="true" />
+						</div>
+						<div tabindex="0" :class="optionsPanel">
 							<div class="space-y-3">
-								<form
-									class="space-y-1"
-									@submit.prevent="emit('rename-tag', t.id, renameFromForm($event))"
-								>
+								<form class="space-y-1" @submit.prevent="submitRenameTag(t.id, $event)">
 									<span :class="sectionHeader">Rename</span>
 									<div class="join w-full">
-										<input name="name" :value="t.name" class="input input-sm join-item w-full" />
-										<button class="btn btn-primary btn-sm join-item">✓</button>
+										<input
+											name="name"
+											:value="t.name"
+											class="input input-sm join-item w-full"
+										/>
+										<button
+											class="btn btn-primary btn-sm join-item"
+											aria-label="Save tag name"
+										>
+											<Check :size="15" aria-hidden="true" />
+										</button>
 									</div>
 								</form>
 								<div class="space-y-1">
@@ -214,34 +250,42 @@ const sectionHeader =
 									/>
 								</div>
 								<button
-									class="btn btn-error btn-outline btn-sm w-full"
-									@click="confirmDeleteTag(t, closePopover)"
+									class="btn btn-error btn-outline btn-sm w-full gap-1"
+									@click="confirmDeleteTag(t)"
 								>
+									<Trash2 :size="15" aria-hidden="true" />
 									Delete tag
 								</button>
 							</div>
-						</template>
-					</Popover>
+						</div>
+					</div>
 				</li>
 			</ul>
 			<p v-else class="text-xs text-base-content/40">(no tags)</p>
 
 			<form class="space-y-2 pt-1" @submit.prevent="addTag">
 				<div class="join w-full">
-					<input v-model="newTagName" placeholder="New tag" class="input input-sm join-item w-full" />
-					<button class="btn btn-neutral btn-sm join-item">＋</button>
+					<input
+						v-model="newTagName"
+						placeholder="New tag"
+						class="input input-sm join-item w-full"
+					/>
+					<button class="btn btn-neutral btn-sm join-item" aria-label="Add tag">
+						<Plus :size="15" aria-hidden="true" />
+					</button>
 				</div>
 				<ColorPicker v-model="newTagColor" />
 			</form>
 		</section>
 
 		<!-- Live indicator -->
-		<div class="mt-auto flex items-center gap-2 text-xs">
+		<div class="mt-auto">
 			<span
-				class="inline-block h-2 w-2 rounded-full"
-				:class="connected ? 'bg-success' : 'bg-error'"
-			/>
-			<span class="text-base-content/60">{{ connected ? "Live" : "Offline" }}</span>
+				class="badge badge-sm gap-1"
+				:class="connected ? 'badge-success' : 'badge-error'"
+			>
+				{{ connected ? "Live" : "Offline" }}
+			</span>
 		</div>
 	</aside>
 </template>

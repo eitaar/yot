@@ -27,7 +27,7 @@ function onCustom(e: globalThis.Event) {
 			v-for="c in PALETTE"
 			:key="c"
 			type="button"
-			class="h-6 w-6 rounded-full transition hover:scale-110"
+			class="h-6 w-6 cursor-pointer rounded-full transition-colors hover:ring-2 hover:ring-primary/60"
 			:class="
 				modelValue === c
 					? 'ring-2 ring-primary ring-offset-1 ring-offset-base-100'
@@ -48,7 +48,7 @@ function onCustom(e: globalThis.Event) {
 					background:
 						'conic-gradient(#ef4444,#f59e0b,#84cc16,#06b6d4,#6366f1,#ec4899,#ef4444)',
 				}"
-				>＋</span
+				>+</span
 			>
 			<input
 				type="color"

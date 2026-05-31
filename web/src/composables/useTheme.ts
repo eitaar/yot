@@ -21,8 +21,14 @@ function resolved(): "light" | "dark" {
 	return mode.value;
 }
 
+// The concrete light/dark theme currently applied. Consumers (e.g. the
+// schedule-x calendar) watch this to stay in sync with the DaisyUI theme.
+const resolvedTheme = ref<"light" | "dark">(resolved());
+
 function apply() {
-	document.documentElement.dataset.theme = resolved();
+	const next = resolved();
+	resolvedTheme.value = next;
+	document.documentElement.dataset.theme = next;
 }
 
 function setMode(next: ThemeMode) {
@@ -46,5 +52,5 @@ export function initTheme() {
 }
 
 export function useTheme() {
-	return { mode, setMode };
+	return { mode, resolvedTheme, setMode };
 }
