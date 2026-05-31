@@ -204,10 +204,7 @@ onMounted(refresh);
 		/>
 		<div class="flex min-w-0 flex-1 flex-col gap-3 p-4">
 			<div class="flex items-center justify-end">
-				<button
-					class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-					@click="openCreate"
-				>
+				<button class="btn btn-primary btn-sm" @click="openCreate">
 					＋ New event
 				</button>
 			</div>
