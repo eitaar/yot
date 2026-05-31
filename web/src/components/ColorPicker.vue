@@ -27,11 +27,11 @@ function onCustom(e: globalThis.Event) {
 			v-for="c in PALETTE"
 			:key="c"
 			type="button"
-			class="h-6 w-6 rounded-full ring-offset-1 ring-offset-white transition hover:scale-110 dark:ring-offset-slate-800"
+			class="h-6 w-6 rounded-full transition hover:scale-110"
 			:class="
 				modelValue === c
-					? 'ring-2 ring-accent'
-					: 'ring-1 ring-black/10 dark:ring-white/15'
+					? 'ring-2 ring-primary ring-offset-1 ring-offset-base-100'
+					: 'ring-1 ring-base-300'
 			"
 			:style="{ background: c }"
 			:aria-label="`Use ${c}`"
@@ -39,11 +39,11 @@ function onCustom(e: globalThis.Event) {
 			@click="emit('update:modelValue', c)"
 		/>
 		<label
-			class="relative h-6 w-6 cursor-pointer overflow-hidden rounded-full ring-1 ring-black/10 dark:ring-white/15"
+			class="relative h-6 w-6 cursor-pointer overflow-hidden rounded-full ring-1 ring-base-300"
 			title="Custom color"
 		>
 			<span
-				class="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300"
+				class="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white"
 				:style="{
 					background:
 						'conic-gradient(#ef4444,#f59e0b,#84cc16,#06b6d4,#6366f1,#ec4899,#ef4444)',

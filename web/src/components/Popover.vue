@@ -37,7 +37,7 @@ onUnmounted(close);
 		<slot name="trigger" :toggle="toggle" :open="open" />
 		<div
 			v-if="open"
-			class="absolute top-full z-30 mt-1 min-w-48 rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+			class="absolute top-full z-30 mt-1 min-w-48 rounded-box border border-base-300 bg-base-100 p-3 shadow-lg"
 			:class="align === 'right' ? 'right-0' : 'left-0'"
 		>
 			<slot name="panel" :close="close" />
