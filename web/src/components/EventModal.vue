@@ -188,79 +188,53 @@ onMounted(() => {
 });
 onUnmounted(() => window.removeEventListener("keydown", onKey));
 
-const fieldClass =
-	"w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100";
-const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
+const fieldClass = "w-full";
+const labelClass = "text-xs font-medium text-base-content/60";
 </script>
 
 <template>
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+		class="modal modal-open"
 		@click.self="emit('close')"
 	>
-		<div
-			class="w-full max-w-md rounded-card border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-800"
-		>
+		<div class="modal-box w-full max-w-md">
 			<div class="mb-3 flex items-start justify-between gap-2">
-				<h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-					{{ title }}
-				</h2>
-				<button
-					type="button"
-					class="rounded-md px-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-					@click="emit('close')"
-				>
+				<h2 class="text-lg font-semibold">{{ title }}</h2>
+				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
 					✕
 				</button>
 			</div>
 
 			<!-- View mode -->
 			<div v-if="localMode === 'view' && event" class="space-y-3">
-				<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+				<div class="flex items-center gap-2 text-sm text-base-content/70">
 					<span
-						class="inline-block h-3 w-3 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-						:style="{ background: calendar?.color ?? '#94a3b8' }"
+						class="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
+						:style="{ background: calendar?.color ?? 'oklch(0.7 0.04 256)' }"
 					/>
 					<span>{{ calendar?.name ?? "Unknown calendar" }}</span>
 				</div>
-				<p class="text-sm text-slate-700 dark:text-slate-200">
+				<p class="text-sm">
 					{{ dateRange }}
-					<span v-if="event.all_day" class="ml-1 text-xs text-slate-400"
-						>(all day)</span
-					>
+					<span v-if="event.all_day" class="ml-1 text-xs text-base-content/50">(all day)</span>
 				</p>
-				<p v-if="event.location" class="text-sm text-slate-700 dark:text-slate-200">
-					📍 {{ event.location }}
-				</p>
-				<p
-					v-if="event.description"
-					class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200"
-				>
+				<p v-if="event.location" class="text-sm">📍 {{ event.location }}</p>
+				<p v-if="event.description" class="whitespace-pre-wrap text-sm">
 					{{ event.description }}
 				</p>
 				<div v-if="event.tags.length" class="flex flex-wrap gap-1">
 					<span
 						v-for="t in event.tags"
 						:key="t"
-						class="rounded-full px-2 py-0.5 text-xs text-white"
+						class="badge badge-sm border-0 text-white"
 						:style="{ background: tagColor(t) }"
 					>
 						{{ t }}
 					</span>
 				</div>
-				<div class="flex justify-end gap-2 pt-2">
-					<button
-						class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-						@click="emit('close')"
-					>
-						Close
-					</button>
-					<button
-						class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-						@click="startEdit"
-					>
-						Edit
-					</button>
+				<div class="modal-action">
+					<button class="btn btn-ghost btn-sm" @click="emit('close')">Close</button>
+					<button class="btn btn-primary btn-sm" @click="startEdit">Edit</button>
 				</div>
 			</div>
 
@@ -268,21 +242,19 @@ const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
 			<form v-else class="space-y-3" @submit.prevent="submit">
 				<label class="block space-y-1">
 					<span :class="labelClass">Title</span>
-					<input v-model="form.title" required :class="fieldClass" />
+					<input v-model="form.title" required class="input w-full" />
 				</label>
 				<label class="block space-y-1">
 					<span :class="labelClass">Calendar</span>
-					<select v-model="form.calendar_id" required :class="fieldClass">
-						<option v-for="c in calendars" :key="c.id" :value="c.id">
-							{{ c.name }}
-						</option>
+					<select v-model="form.calendar_id" required class="select w-full">
+						<option v-for="c in calendars" :key="c.id" :value="c.id">{{ c.name }}</option>
 					</select>
 				</label>
-				<label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+				<label class="flex cursor-pointer items-center gap-2 text-sm">
 					<input
 						v-model="form.all_day"
 						type="checkbox"
-						class="h-4 w-4 accent-emerald-600 dark:accent-emerald-400"
+						class="checkbox checkbox-primary checkbox-sm"
 						@change="onAllDayToggle"
 					/>
 					All day
@@ -294,7 +266,7 @@ const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
 							v-model="form.start"
 							:type="form.all_day ? 'date' : 'datetime-local'"
 							required
-							:class="fieldClass"
+							class="input w-full"
 						/>
 					</label>
 					<label class="block flex-1 space-y-1">
@@ -303,17 +275,17 @@ const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
 							v-model="form.end"
 							:type="form.all_day ? 'date' : 'datetime-local'"
 							required
-							:class="fieldClass"
+							class="input w-full"
 						/>
 					</label>
 				</div>
 				<label class="block space-y-1">
 					<span :class="labelClass">Location</span>
-					<input v-model="form.location" :class="fieldClass" />
+					<input v-model="form.location" class="input w-full" />
 				</label>
 				<label class="block space-y-1">
 					<span :class="labelClass">Description</span>
-					<textarea v-model="form.description" rows="3" :class="fieldClass" />
+					<textarea v-model="form.description" rows="3" class="textarea w-full" />
 				</label>
 				<div v-if="tags.length" class="space-y-1">
 					<span :class="labelClass">Tags</span>
@@ -326,17 +298,13 @@ const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
 							:style="
 								selectedTagIds.has(t.id)
 									? {
-											background: t.color ?? '#475569',
-											borderColor: t.color ?? '#475569',
+											background: t.color ?? 'oklch(0.45 0.03 256)',
+											borderColor: t.color ?? 'oklch(0.45 0.03 256)',
 											color: '#fff',
 										}
-									: { borderColor: t.color ?? '#cbd5e1' }
+									: { borderColor: t.color ?? 'var(--color-base-300)' }
 							"
-							:class="
-								selectedTagIds.has(t.id)
-									? ''
-									: 'text-slate-600 dark:text-slate-300'
-							"
+							:class="selectedTagIds.has(t.id) ? '' : 'text-base-content/70'"
 							@click="toggleTag(t.id)"
 						>
 							{{ t.name }}
@@ -344,20 +312,13 @@ const labelClass = "text-xs font-medium text-slate-500 dark:text-slate-400";
 					</div>
 				</div>
 
-				<p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+				<p v-if="error" class="text-sm text-error">{{ error }}</p>
 
-				<div class="flex justify-end gap-2 pt-1">
-					<button
-						type="button"
-						class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-						@click="emit('close')"
-					>
+				<div class="modal-action">
+					<button type="button" class="btn btn-ghost btn-sm" @click="emit('close')">
 						Cancel
 					</button>
-					<button
-						:disabled="busy"
-						class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
-					>
+					<button :disabled="busy" class="btn btn-primary btn-sm">
 						{{ localMode === "create" ? "Create" : "Save" }}
 					</button>
 				</div>
