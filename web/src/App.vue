@@ -11,7 +11,10 @@ const { logout } = useAuth();
 const sidebar = useSidebar();
 
 // Close the mobile drawer whenever the route changes.
-watch(() => route.fullPath, () => sidebar.close());
+watch(
+	() => route.fullPath,
+	() => sidebar.close(),
+);
 
 const linkBase = "btn btn-ghost btn-sm";
 const linkActive = "btn-active text-primary";
