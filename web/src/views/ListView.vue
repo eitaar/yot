@@ -152,66 +152,50 @@ onMounted(refresh);
 			@delete-tag="(id) => removeTag(id)"
 		/>
 		<div class="flex min-w-0 flex-1 flex-col gap-3 p-4">
-			<div class="flex items-center gap-2">
-				<input
-					v-model="search"
-					placeholder="Search events…"
-					class="w-64 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-					@keyup.enter="refresh"
-				/>
-				<button
-					class="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-					@click="refresh"
-				>
-					Search
-				</button>
-				<button
-					class="ml-auto rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-					@click="openCreate"
-				>
+			<div class="flex flex-wrap items-center gap-2">
+				<div class="join">
+					<input
+						v-model="search"
+						placeholder="Search events…"
+						class="input input-sm join-item"
+						@keyup.enter="refresh"
+					/>
+					<button class="btn btn-neutral btn-sm join-item" @click="refresh">Search</button>
+				</div>
+				<button class="btn btn-primary btn-sm ml-auto" @click="openCreate">
 					＋ New event
 				</button>
 			</div>
-			<ul
-				class="divide-y divide-slate-100 overflow-hidden rounded-card border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900"
-			>
+			<ul class="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">
 				<li
 					v-for="e in visibleEvents"
 					:key="e.id"
-					class="cursor-pointer px-4 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800"
+					class="cursor-pointer px-4 py-3 transition hover:bg-base-200"
 					@click="openView(e)"
 				>
-					<div class="flex items-center gap-2">
+					<div class="flex flex-wrap items-center gap-2">
 						<span
-							class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
+							class="inline-block h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10"
 							:style="{ background: calendarColor(e.calendar_id) }"
 						/>
-						<span class="font-medium text-slate-900 dark:text-slate-100">{{
-							e.title
-						}}</span>
-						<span class="text-sm text-slate-500 dark:text-slate-400">
+						<span class="font-medium">{{ e.title }}</span>
+						<span class="text-sm text-base-content/60">
 							{{ new Date(e.start_at).toLocaleString() }}
 						</span>
 						<span
 							v-for="t in e.tags"
 							:key="t"
-							class="rounded-full px-2 py-0.5 text-xs text-white"
+							class="badge badge-sm border-0 text-white"
 							:style="{ background: tagColor(t) }"
 						>
 							{{ t }}
 						</span>
 					</div>
-					<p
-						v-if="e.location"
-						class="ml-5 mt-0.5 text-xs text-slate-400 dark:text-slate-500"
-					>
+					<p v-if="e.location" class="ml-5 mt-0.5 text-xs text-base-content/50">
 						📍 {{ e.location }}
 					</p>
 				</li>
-				<li
-					v-if="visibleEvents.length === 0"
-					class="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
-				>
+				<li v-if="visibleEvents.length === 0" class="px-4 py-6 text-center text-sm text-base-content/40">
 					No events.
 				</li>
 			</ul>
