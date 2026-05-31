@@ -1,80 +1,121 @@
 @import "tailwindcss";
+@plugin "daisyui";
 
-/* Class-based dark mode: `dark:` utilities follow the `.dark` class on <html>
-   (toggled by useTheme from the OS prefers-color-scheme), not the media query. */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Light theme (default) — emerald primary, slate-tinted neutrals. */
+@plugin "daisyui/theme" {
+	name: "light";
+	default: true;
+	prefersdark: false;
+	color-scheme: light;
 
-@theme {
-	--color-accent: #059669; /* emerald-600 */
-	--color-accent-hover: #047857; /* emerald-700 */
-	--radius-card: 0.75rem;
+	--color-base-100: oklch(1 0 0);
+	--color-base-200: oklch(0.984 0.003 247.858);
+	--color-base-300: oklch(0.929 0.013 255.508);
+	--color-base-content: oklch(0.208 0.042 265.755);
+	--color-primary: oklch(0.596 0.145 163.225);
+	--color-primary-content: oklch(1 0 0);
+	--color-secondary: oklch(0.554 0.046 257.417);
+	--color-secondary-content: oklch(1 0 0);
+	--color-accent: oklch(0.696 0.17 162.48);
+	--color-accent-content: oklch(1 0 0);
+	--color-neutral: oklch(0.372 0.044 257.287);
+	--color-neutral-content: oklch(0.984 0.003 247.858);
+	--color-info: oklch(0.7 0.15 233);
+	--color-info-content: oklch(1 0 0);
+	--color-success: oklch(0.696 0.17 162.48);
+	--color-success-content: oklch(1 0 0);
+	--color-warning: oklch(0.8 0.16 86);
+	--color-warning-content: oklch(0.2 0.05 86);
+	--color-error: oklch(0.637 0.237 25.331);
+	--color-error-content: oklch(1 0 0);
+
+	--radius-selector: 0.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 0.75rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 1;
+	--noise: 0;
 }
 
-@layer base {
-	:root {
-		color-scheme: light;
-	}
-	.dark {
-		color-scheme: dark;
-	}
-	body {
-		@apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-	}
+/* Dark theme — slate surfaces, brighter emerald primary. */
+@plugin "daisyui/theme" {
+	name: "dark";
+	default: false;
+	prefersdark: true;
+	color-scheme: dark;
+
+	--color-base-100: oklch(0.208 0.042 265.755);
+	--color-base-200: oklch(0.279 0.041 260.031);
+	--color-base-300: oklch(0.372 0.044 257.287);
+	--color-base-content: oklch(0.968 0.007 247.896);
+	--color-primary: oklch(0.765 0.177 163.223);
+	--color-primary-content: oklch(0.262 0.051 172.552);
+	--color-secondary: oklch(0.704 0.04 256.788);
+	--color-secondary-content: oklch(0.208 0.042 265.755);
+	--color-accent: oklch(0.765 0.177 163.223);
+	--color-accent-content: oklch(0.262 0.051 172.552);
+	--color-neutral: oklch(0.279 0.041 260.031);
+	--color-neutral-content: oklch(0.968 0.007 247.896);
+	--color-info: oklch(0.7 0.15 233);
+	--color-info-content: oklch(0.208 0.042 265.755);
+	--color-success: oklch(0.765 0.177 163.223);
+	--color-success-content: oklch(0.262 0.051 172.552);
+	--color-warning: oklch(0.8 0.16 86);
+	--color-warning-content: oklch(0.2 0.05 86);
+	--color-error: oklch(0.637 0.237 25.331);
+	--color-error-content: oklch(1 0 0);
+
+	--radius-selector: 0.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 0.75rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 1;
+	--noise: 0;
 }
+
+/* Make Tailwind `dark:` utilities track the dark DaisyUI theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* ---- Schedule-X reskin -------------------------------------------------------
-   The default theme defines its variables on :root (light) and .is-dark (dark).
-   Custom properties resolve from the nearest ancestor, so setting them on the
-   calendar wrapper overrides the defaults for the calendar subtree without
-   touching the rest of the app. `.dark .sx-vue-calendar-wrapper` handles dark. */
+   Map Schedule-X variables to DaisyUI tokens. These are live var() references,
+   so the calendar tracks the active theme automatically (no separate dark
+   block) and its text uses base-content. */
 .sx-vue-calendar-wrapper {
-	--sx-color-primary: #059669; /* emerald-600 */
-	--sx-color-on-primary: #ffffff;
-	--sx-color-primary-container: #d1fae5; /* emerald-100 — today/selected */
-	--sx-color-on-primary-container: #065f46; /* emerald-800 */
+	--sx-color-primary: var(--color-primary);
+	--sx-color-on-primary: var(--color-primary-content);
+	--sx-color-primary-container: color-mix(
+		in oklch,
+		var(--color-primary) 18%,
+		var(--color-base-100)
+	);
+	--sx-color-on-primary-container: var(--color-base-content);
 
-	--sx-color-background: #ffffff;
-	--sx-color-surface: #ffffff;
-	--sx-color-surface-bright: #ffffff;
-	--sx-color-surface-dim: #f1f5f9; /* slate-100 */
-	--sx-color-surface-container: #f8fafc; /* slate-50 */
-	--sx-color-surface-container-low: #f8fafc;
-	--sx-color-surface-container-high: #f1f5f9;
+	--sx-color-background: var(--color-base-100);
+	--sx-color-surface: var(--color-base-100);
+	--sx-color-surface-bright: var(--color-base-200);
+	--sx-color-surface-dim: var(--color-base-200);
+	--sx-color-surface-container: var(--color-base-200);
+	--sx-color-surface-container-low: var(--color-base-200);
+	--sx-color-surface-container-high: var(--color-base-300);
 
-	--sx-color-on-background: #0f172a; /* slate-900 */
-	--sx-color-on-surface: #0f172a;
-	--sx-color-neutral: #475569; /* slate-600 */
-	--sx-color-neutral-variant: #64748b; /* slate-500 */
+	--sx-color-on-background: var(--color-base-content);
+	--sx-color-on-surface: var(--color-base-content);
+	--sx-color-neutral: var(--color-base-content);
+	--sx-color-neutral-variant: color-mix(
+		in oklch,
+		var(--color-base-content) 60%,
+		var(--color-base-100)
+	);
 
-	--sx-border: #e2e8f0; /* slate-200 */
-	--sx-color-outline: #cbd5e1; /* slate-300 */
-	--sx-color-outline-variant: #e2e8f0; /* slate-200 */
+	--sx-border: var(--color-base-300);
+	--sx-color-outline: var(--color-base-300);
+	--sx-color-outline-variant: var(--color-base-300);
 
 	--sx-rounding-extra-small: 0.25rem;
 	--sx-rounding-small: 0.375rem;
 	--sx-rounding-extra-large: 0.75rem;
-}
-
-.dark .sx-vue-calendar-wrapper {
-	--sx-color-primary: #34d399; /* emerald-400 */
-	--sx-color-on-primary: #022c22; /* emerald-950 */
-	--sx-color-primary-container: #064e3b; /* emerald-900 */
-	--sx-color-on-primary-container: #d1fae5; /* emerald-100 */
-
-	--sx-color-background: #0f172a; /* slate-900 */
-	--sx-color-surface: #1e293b; /* slate-800 */
-	--sx-color-surface-bright: #334155; /* slate-700 */
-	--sx-color-surface-dim: #0f172a;
-	--sx-color-surface-container: #1e293b;
-	--sx-color-surface-container-low: #172033;
-	--sx-color-surface-container-high: #334155;
-
-	--sx-color-on-background: #e2e8f0; /* slate-200 */
-	--sx-color-on-surface: #e2e8f0;
-	--sx-color-neutral: #cbd5e1; /* slate-300 */
-	--sx-color-neutral-variant: #94a3b8; /* slate-400 */
-
-	--sx-border: #334155; /* slate-700 */
-	--sx-color-outline: #475569; /* slate-600 */
-	--sx-color-outline-variant: #334155; /* slate-700 */
 }
