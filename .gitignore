@@ -34,6 +34,7 @@ lerna-debug.log*
 
 # build output
 dist/
+web/dev-dist/
 
 # sqlite database
 data.db

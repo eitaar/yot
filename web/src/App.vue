@@ -36,18 +36,18 @@ async function onLogout() {
 <template>
 	<div class="flex min-h-screen flex-col bg-base-100 text-base-content">
 		<template v-if="route.name !== 'pair'">
-			<header class="navbar min-h-0 border-b border-base-300 bg-base-100 px-2 py-1.5">
+			<header class="navbar min-h-0 border-b border-base-200 bg-base-100 px-2 py-1.5">
 				<button
-					class="btn btn-square btn-ghost btn-sm"
+					class="btn btn-square btn-ghost btn-sm hidden lg:inline-flex"
 					aria-label="Toggle sidebar"
 					:aria-expanded="sidebar.isOpen.value"
 					@click="sidebar.toggle()"
 				>
 					<Menu :size="18" aria-hidden="true" />
 				</button>
-				<span class="flex items-center gap-2 px-2 font-semibold">
+				<span class="flex items-center gap-2 px-2 lg:px-2">
 					<span class="inline-block h-4 w-4 rounded bg-primary" />
-					yot
+					<span class="font-serif text-xl leading-none">yot</span>
 				</span>
 				<!-- Desktop top-nav; on mobile these live in the bottom dock. -->
 				<nav class="ml-1 hidden gap-1 lg:flex">
