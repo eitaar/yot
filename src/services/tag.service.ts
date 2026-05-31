@@ -2,7 +2,7 @@ import { ConflictError, NotFoundError } from "../core/errors.js";
 import type { EventBus } from "../core/event-bus.js";
 import { newId } from "../core/id.js";
 import type { DB } from "../db/connection.js";
-import type { CreateTagInput, Tag } from "../schemas/tag.js";
+import type { CreateTagInput, Tag, UpdateTagInput } from "../schemas/tag.js";
 
 export class TagService {
 	constructor(
@@ -42,6 +42,27 @@ export class TagService {
 
 	list(): Tag[] {
 		return this.db.prepare(`SELECT * FROM tags ORDER BY name`).all() as Tag[];
+	}
+
+	update(id: string, input: UpdateTagInput): Tag {
+		const current = this.get(id);
+		const updated: Tag = {
+			...current,
+			name: input.name ?? current.name,
+			color: input.color === undefined ? current.color : input.color,
+		};
+		try {
+			this.db
+				.prepare(`UPDATE tags SET name = @name, color = @color WHERE id = @id`)
+				.run(updated);
+		} catch (err) {
+			if (err instanceof Error && /UNIQUE/.test(err.message)) {
+				throw new ConflictError(`Tag "${updated.name}" already exists`);
+			}
+			throw err;
+		}
+		this.bus.emit({ type: "tag.updated", data: updated });
+		return updated;
 	}
 
 	delete(id: string): void {

@@ -1,9 +1,9 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { EventBus } from "./core/event-bus.js";
 import { openDb } from "./db/connection.js";
 import { buildApp } from "./rest/app.js";
 import { createServices } from "./services/container.js";
-import { INDEX_HTML } from "./web/page.js";
 
 // Load .env (PORT, DB_PATH, MCP_AUTH, ...) if present. Real env vars win.
 try {
@@ -21,11 +21,12 @@ const services = createServices(db, bus);
 
 const app = buildApp({ bus, services, logging: true });
 
-// Minimal web console for poking the REST API (public, same-origin).
-app.get("/", (c) => c.html(INDEX_HTML));
+app.use("/*", serveStatic({ root: "./web/dist" }));
+app.get("*", serveStatic({ path: "./web/dist/index.html" }));
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
 	console.log(`Calendar backend listening on http://localhost:${info.port}`);
+	console.log(`  Web    http://localhost:${info.port}/`);
 	console.log(`  REST   http://localhost:${info.port}/api`);
 	console.log(`  Docs   http://localhost:${info.port}/api/ui`);
 	console.log(`  SSE    http://localhost:${info.port}/api/stream`);

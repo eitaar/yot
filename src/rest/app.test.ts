@@ -108,6 +108,36 @@ test("creating an event with end before start returns 400", async () => {
 	assert.equal(res.status, 400);
 });
 
+test("PATCH /tags/{id} updates a tag and 404s for an unknown id", async () => {
+	const tag = await (
+		await app.request("/api/tags", json({ name: "old", color: "#ef4444" }))
+	).json();
+
+	const patchRes = await app.request(`/api/tags/${tag.id}`, {
+		method: "PATCH",
+		headers: {
+			"content-type": "application/json",
+			authorization: `Bearer ${writeKey}`,
+		},
+		body: JSON.stringify({ name: "new", color: "#10b981" }),
+	});
+	assert.equal(patchRes.status, 200);
+	const updated = await patchRes.json();
+	assert.equal(updated.id, tag.id);
+	assert.equal(updated.name, "new");
+	assert.equal(updated.color, "#10b981");
+
+	const missingRes = await app.request("/api/tags/nope", {
+		method: "PATCH",
+		headers: {
+			"content-type": "application/json",
+			authorization: `Bearer ${writeKey}`,
+		},
+		body: JSON.stringify({ name: "x" }),
+	});
+	assert.equal(missingRes.status, 404);
+});
+
 test("fetching an unknown calendar returns 404", async () => {
 	const res = await app.request("/api/calendars/nope", {
 		headers: { authorization: `Bearer ${writeKey}` },

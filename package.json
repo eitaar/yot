@@ -3,10 +3,13 @@
 	"type": "module",
 	"scripts": {
 		"dev": "tsx watch src/index.ts",
-		"build": "tsc",
+		"build": "tsc && npm --prefix web run build",
+		"web:dev": "npm --prefix web run dev",
+		"web:build": "npm --prefix web run build",
 		"start": "node dist/index.js",
 		"mcp": "tsx src/mcp/stdio.ts",
 		"mcp:start": "node dist/mcp/stdio.js",
+		"auth": "tsx scripts/auth.ts",
 		"init": "tsx scripts/init.ts",
 		"config": "tsx scripts/config.ts",
 		"test": "tsx --test \"src/**/*.test.ts\"",
@@ -25,6 +28,7 @@
 		"@biomejs/biome": "^2.4.16",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^20.11.17",
+		"concurrently": "^10.0.0",
 		"tsx": "^4.7.1",
 		"typescript": "^5.8.3"
 	}

@@ -10,6 +10,8 @@
 
 .claude
 .mcp.json
+.superpowers
+.docs
 # deps
 node_modules/
 
@@ -36,3 +38,6 @@ dist/
 data.db
 data.db-wal
 data.db-shm
+
+# brainstorming visual-companion scratch dir
+.superpowers/

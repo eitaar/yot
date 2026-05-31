@@ -44,3 +44,31 @@ test("delete removes the tag and emits tag.deleted", () => {
 test("delete throws NotFoundError for an unknown id", () => {
 	assert.throws(() => svc.delete("nope"), NotFoundError);
 });
+
+test("update changes fields and emits tag.updated", () => {
+	const tag = svc.create({ name: "old", color: "#ef4444" });
+	events.length = 0;
+	const updated = svc.update(tag.id, { name: "new", color: "#10b981" });
+	assert.equal(updated.id, tag.id);
+	assert.equal(updated.name, "new");
+	assert.equal(updated.color, "#10b981");
+	assert.deepEqual(events, [{ type: "tag.updated", data: updated }]);
+	assert.equal(svc.get(tag.id).name, "new");
+});
+
+test("update with only a color keeps the name", () => {
+	const tag = svc.create({ name: "keep", color: "#ef4444" });
+	const updated = svc.update(tag.id, { color: "#3b82f6" });
+	assert.equal(updated.name, "keep");
+	assert.equal(updated.color, "#3b82f6");
+});
+
+test("update throws NotFoundError for an unknown id", () => {
+	assert.throws(() => svc.update("nope", { name: "x" }), NotFoundError);
+});
+
+test("update to a duplicate name throws ConflictError", () => {
+	svc.create({ name: "taken" });
+	const other = svc.create({ name: "other" });
+	assert.throws(() => svc.update(other.id, { name: "taken" }), ConflictError);
+});

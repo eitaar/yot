@@ -1,10 +1,11 @@
 # yot — Calendar Backend Specification
 
-Version 1.0 · Status: implemented.
+Version 1.1 · Status: implemented.
 
 A single-user calendar backend where a **REST API** and an **MCP server** perform
 full CRUD over the same data, with **Server-Sent Events** for realtime sync and
-**API-key authentication**. This document specifies the system as built.
+**API-key authentication**. A **Vue 3 SPA** provides a browser-based calendar UI
+authenticated via a PIN-pairing flow. This document specifies the system as built.
 
 ---
 
@@ -12,12 +13,14 @@ full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 
 ### 1.1 Goals
 
-- One source of truth for calendar data, reachable through **two surfaces**:
-  a REST API (for apps/clients/scripts) and an MCP server (for AI agents).
+- One source of truth for calendar data, reachable through **three surfaces**:
+  a REST API (for apps/clients/scripts), an MCP server (for AI agents), and a
+  Vue 3 web UI (for browser-based interaction).
 - **Realtime fan-out**: any change, from any surface, is broadcast to all
-  connected listeners over SSE.
+  connected listeners over SSE. The web UI subscribes automatically.
 - **Access control**: every data request requires an API key; keys carry a
-  `read` or `write` scope.
+  `read` or `write` scope. Browser sessions are established via PIN pairing
+  and use HttpOnly cookies.
 
 ### 1.2 Non-goals (intentionally out of scope)
 
@@ -39,6 +42,7 @@ full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 | Database           | `better-sqlite3` (synchronous)                             |
 | Validation/schemas | Zod 4 (via `@hono/zod-openapi`)                            |
 | CLI prompts        | `@clack/prompts`                                           |
+| Frontend           | Vue 3, Vite, Tailwind CSS v4, Vue Router, Schedule-X v2    |
 | Lint/format        | Biome                                                      |
 | Tests              | `node:test` run through `tsx`                              |
 
@@ -84,7 +88,7 @@ made through MCP appear on the SSE feed almost instantly. The relay is one-way
 
 ```
 src/
-  index.ts                 # compose db, services, REST, SSE, web; start HTTP server
+  index.ts                 # compose db, services, REST, SSE; serve web/dist SPA; start HTTP server
   db/
     schema.ts              # SCHEMA_SQL (DDL as a TS string)
     connection.ts          # openDb(path): pragmas + apply schema
@@ -101,12 +105,15 @@ src/
     calendar.service.ts    # CRUD; emits calendar.*
     event.service.ts       # CRUD + reminders + tag links + filtered list; emits event.*
     tag.service.ts         # CRUD; emits tag.*
-    container.ts           # createServices(db, bus): Services
+    container.ts           # createServices(db, bus): Services (includes PairingService)
   auth/
     apikey.ts              # ApiKeyService, generateRawKey, hashKey
-    middleware.ts          # authenticate, requireWriteForMutations, assertScope
+    pairing.ts             # PairingService: in-memory one-time PIN create/redeem with TTL
+    rate-limit.ts          # RateLimiter: fixed-window failure counter
+    middleware.ts          # authenticate (reads yot_session cookie), requireWriteForMutations, assertScope
   rest/
     app.ts                 # buildApp(): OpenAPIHono, onError, /doc, /ui, /health, mounts routes
+    auth.ts                # public pair/logout + authed pin/session routes
     calendars.ts           # /calendars routes
     events.ts              # /events routes (+ reminders, tag links)
     tags.ts                # /tags routes
@@ -116,11 +123,19 @@ src/
     server.ts              # buildMcpServer(services, scope): registers 14 tools
     stdio.ts               # stdio MCP entry point: db→services→server→StdioServerTransport
     relay.ts               # startChangeRelay: forwards bus events to HTTP server
-  web/
-    page.ts                # INDEX_HTML dev console served at GET /
 scripts/
   init.ts                  # interactive: create API key, save to .env, set MCP auth
+  auth.ts                  # interactive: mint a PIN to pair a browser session
   config.ts                # interactive .env editor (PORT / DB_PATH / MCP_AUTH)
+web/                       # Vue 3 SPA (independent Vite project)
+  src/
+    api/client.ts          # typed REST API client (fetch + cookie auth)
+    composables/           # useAuth, useCalendars, useEvents, useTags, useSSE
+    views/                 # CalendarView (Schedule-X), ListView, PairView
+    components/            # Sidebar, EventForm
+    router.ts              # Vue Router with auth guard
+    App.vue                # app shell with nav header
+    main.ts                # app entry point
 ```
 
 ### 2.3 Request lifecycle
@@ -298,7 +313,8 @@ order):
 2. `Authorization: <key>` — a bare value without the `Bearer` prefix is also
    accepted.
 3. `X-API-Key: <key>`
-4. `?key=<key>` query parameter — for browser `EventSource`, which cannot set
+4. `yot_session` HttpOnly cookie — set by the PIN pairing flow (§5.5).
+5. `?key=<key>` query parameter — for browser `EventSource`, which cannot set
    headers.
 
 The same extraction applies to every authenticated route, so `?key=` works on
@@ -326,6 +342,30 @@ updates `last_used_at`. Setting `MCP_AUTH=off` (or `false`/`0`/`no`) skips the
 key lookup entirely and runs every tool with full `write` scope. The REST API is
 a separate process and stays protected regardless of this setting.
 
+### 5.5 PIN pairing (browser sessions)
+
+The web UI authenticates via a short-lived PIN flow rather than requiring users
+to paste API keys:
+
+1. An authenticated client (e.g. `scripts/auth.ts`) calls `POST /api/auth/pin`
+   with a desired scope. The server mints a random 6-digit PIN bound to that
+   scope, stored hashed in the `PairingService` (in-memory, 5-minute TTL).
+2. The browser submits the PIN to `POST /api/auth/pair` (public, no auth
+   required). If the PIN is valid and unexpired, the server creates a new API
+   key (`web` label), sets it as an `HttpOnly`, `SameSite=Strict`,
+   `Secure` (when HTTPS) cookie named `yot_session`, and returns the scope.
+3. Subsequent browser requests carry the cookie automatically. The auth
+   middleware reads `yot_session` in the credential extraction chain (§5.2).
+4. `POST /api/auth/logout` revokes the underlying API key and clears the cookie.
+5. `GET /api/auth/session` (authed) returns the current scope for the session.
+
+PINs are one-time-use and stored hashed (SHA-256) in process memory — they are
+never persisted to the database. A `RateLimiter` blocks an IP after 5 failed
+pairing attempts within 60 seconds.
+
+No escalation: a `read`-scoped key can only mint `read` PINs, even if `write`
+is requested.
+
 ---
 
 ## 6. REST API
@@ -340,6 +380,10 @@ Base path `/api`. Interactive docs at `/api/ui`; raw OpenAPI 3.0 at `/api/doc`
 | GET    | `/health`                      | public | —              | 200 `{ "status": "ok" }` |
 | GET    | `/doc`                         | public | —              | 200 OpenAPI JSON         |
 | GET    | `/ui`                          | public | —              | 200 Swagger UI (HTML)    |
+| POST   | `/auth/pair`                   | public | `{ pin }`      | 200 + Set-Cookie         |
+| POST   | `/auth/logout`                 | public | —              | 200 + Clear-Cookie       |
+| POST   | `/auth/pin`                    | authed | `{ scope? }`   | 200 `{ pin, scope }`     |
+| GET    | `/auth/session`                | authed | —              | 200 `{ scope }`          |
 | GET    | `/stream`                      | read   | —              | 200 `text/event-stream`  |
 | GET    | `/calendars`                   | read   | —              | 200 `Calendar[]`         |
 | POST   | `/calendars`                   | write  | CreateCalendar | 201 `Calendar`           |
@@ -492,12 +536,26 @@ relay-specific environment variables.
 
 ---
 
-## 9. Web console
+## 9. Web UI
 
-`GET /` serves a single self-contained HTML page (`src/web/page.ts`), same-origin
-with the API. It lets you save an API key (in `localStorage`), CRUD calendars and
-events, and watch the live SSE feed update in real time. Intended for manual
-testing, not as a product UI.
+`GET /` serves the Vue 3 SPA built from `web/` (production: static files from
+`web/dist` with SPA fallback; development: Vite dev server on port 5173 proxying
+`/api` to the backend).
+
+The SPA provides:
+- **PIN pairing** (`/pair`) — enter a 6-digit PIN from `npm run auth` to
+  establish a session cookie.
+- **Calendar view** (`/`) — Schedule-X v2 month/week/day grid with live SSE
+  updates.
+- **List view** (`/list`) — searchable event list with inline delete.
+- **Sidebar** — calendar management (create/delete) with SSE connection
+  indicator.
+- **Event form** — create events from any view.
+- **Auth guard** — unauthenticated visitors are redirected to `/pair`.
+
+The frontend is an independent Vite project (`web/package.json`) with its own
+dependencies. It uses `@` path aliases for local imports. Types for API responses
+are defined in the API client (`web/src/api/client.ts`).
 
 ---
 
@@ -522,10 +580,14 @@ Both `.env` and `.mcp.json` are gitignored (they hold or can hold the raw key).
 | Script              | Action                                                         |
 | ------------------- | -------------------------------------------------------------- |
 | `npm run dev`       | `tsx watch src/index.ts` (HTTP server: REST/SSE/web)           |
-| `npm run build`     | `tsc` → `dist/`                                                |
-| `npm start`         | `node dist/index.js` (HTTP server)                             |
+| `npm run dev:all`   | backend + frontend dev servers concurrently                    |
+| `npm run web:dev`   | `vite` dev server (port 5173, proxies `/api`)                  |
+| `npm run web:build` | `vue-tsc --noEmit && vite build` → `web/dist/`                 |
+| `npm run build`     | `tsc` → `dist/` + `web/dist/`                                  |
+| `npm start`         | `node dist/index.js` (HTTP server, serves SPA)                 |
 | `npm run mcp`       | `tsx src/mcp/stdio.ts` (stdio MCP server)                      |
 | `npm run mcp:start` | `node dist/mcp/stdio.js` (stdio MCP server, built)             |
+| `npm run auth`      | mint a PIN to pair a browser session                           |
 | `npm run init`      | create an API key, save it to `.env`, set MCP auth (`init.ts`) |
 | `npm run config`    | interactively edit `PORT` / `DB_PATH` / `MCP_AUTH` in `.env`   |
 | `npm test`          | `tsx --test "src/**/*.test.ts"` (node:test suites)             |
@@ -546,8 +608,12 @@ Coverage:
   each mutation asserts the expected change event is emitted.
 - `auth/apikey.test.ts` — generate/hash/lookup roundtrip, revoked rejected,
   `last_used_at` updates, hash never exposed.
+- `auth/pairing.test.ts` — PIN create/redeem, one-time use, TTL expiry.
+- `auth/rate-limit.test.ts` — block after max failures, window expiry, reset.
 - `rest/app.test.ts` — health (public), 401 (no key), 403 (read-only mutation),
   full calendar+event CRUD flow, 400 (bad dates), 404 (unknown), OpenAPI doc.
+- `rest/auth.test.ts` — PIN minting, pairing with cookie, cookie-based auth,
+  scope downgrade for read keys.
 - `rest/stream.test.ts` — SSE smoke test: `ready` frame then a broadcast after a
   mutation.
 
@@ -558,6 +624,12 @@ Coverage:
 - Keys are stored only as SHA-256 hashes; raw keys are shown once.
 - The `?key=` query option is convenient but can leak into logs/history; prefer
   the header where the client supports it.
+- Pairing PINs are 6-digit, one-time-use, hashed in memory (never persisted),
+  and expire after 5 minutes. A per-IP rate limiter blocks after 5 failed
+  attempts within 60 seconds.
+- The `yot_session` cookie is `HttpOnly`, `SameSite=Strict`, and `Secure` when
+  served over HTTPS. It contains a full API key (not a session token), so
+  revoking the key invalidates the session.
 - `MCP_AUTH=off` removes all scope control on the stdio MCP server (every tool
   runs as `write`) — use only on a trusted local machine. Since the client spawns
   the process locally and `YOT_API_KEY` is passed through its environment, this

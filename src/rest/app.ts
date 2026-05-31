@@ -12,6 +12,7 @@ import {
 import { AppError, ValidationError } from "../core/errors.js";
 import type { EventBus } from "../core/event-bus.js";
 import type { Services } from "../services/container.js";
+import { registerAuthedAuthRoutes, registerPublicAuthRoutes } from "./auth.js";
 import { registerCalendarRoutes } from "./calendars.js";
 import { registerEventRoutes } from "./events.js";
 import { registerInternalRoutes } from "./internal.js";
@@ -95,8 +96,11 @@ export function buildApp({
 	});
 	api.get("/ui", (c) => c.html(SWAGGER_HTML));
 
+	registerPublicAuthRoutes(api, services);
+
 	// --- auth gate ---
 	api.use("*", authenticate(services.apiKeys));
+	registerAuthedAuthRoutes(api, services);
 	api.use("*", requireWriteForMutations());
 
 	// --- protected ---

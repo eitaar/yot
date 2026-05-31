@@ -1,0 +1,20 @@
+import { ref } from "vue";
+import type { Calendar, CalendarUpdate } from "@/api/client";
+import { api } from "@/api/client";
+
+const calendars = ref<Calendar[]>([]);
+
+export function useCalendars() {
+	async function load() {
+		calendars.value = await api.listCalendars();
+	}
+	async function create(name: string, color?: string) {
+		await api.createCalendar({ name, ...(color ? { color } : {}) });
+		await load();
+	}
+	async function update(id: string, input: CalendarUpdate) {
+		await api.updateCalendar(id, input);
+		await load();
+	}
+	return { calendars, load, create, update };
+}
