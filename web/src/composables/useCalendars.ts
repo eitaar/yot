@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import type { Calendar } from "@/api/client";
+import type { Calendar, CalendarUpdate } from "@/api/client";
 import { api } from "@/api/client";
 
 const calendars = ref<Calendar[]>([]);
@@ -12,9 +12,9 @@ export function useCalendars() {
 		await api.createCalendar({ name, ...(color ? { color } : {}) });
 		await load();
 	}
-	async function remove(id: string) {
-		await api.deleteCalendar(id);
+	async function update(id: string, input: CalendarUpdate) {
+		await api.updateCalendar(id, input);
 		await load();
 	}
-	return { calendars, load, create, remove };
+	return { calendars, load, create, update };
 }

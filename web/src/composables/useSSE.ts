@@ -8,6 +8,7 @@ const CHANGE_EVENTS = [
 	"event.updated",
 	"event.deleted",
 	"tag.created",
+	"tag.updated",
 	"tag.deleted",
 ] as const;
 

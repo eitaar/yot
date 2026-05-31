@@ -8,15 +8,12 @@ export function useEvents() {
 	async function load(query: Record<string, string> = {}) {
 		events.value = await api.listEvents(query);
 	}
-	async function create(input: {
-		calendar_id: string;
-		title: string;
-		start_at: string;
-		end_at: string;
-		all_day?: boolean;
-	}) {
-		await api.createEvent(input);
+	async function create(
+		input: Parameters<typeof api.createEvent>[0],
+	): Promise<Event> {
+		const created = await api.createEvent(input);
 		await load();
+		return created;
 	}
 	async function update(id: string, input: EventUpdate) {
 		await api.updateEvent(id, input);
@@ -26,5 +23,12 @@ export function useEvents() {
 		await api.deleteEvent(id);
 		await load();
 	}
-	return { events, load, create, update, remove };
+	// Tag assign/unassign: no reload — the modal batches these then refreshes once.
+	async function addTag(eventId: string, tagId: string) {
+		await api.addEventTag(eventId, tagId);
+	}
+	async function removeTag(eventId: string, tagId: string) {
+		await api.removeEventTag(eventId, tagId);
+	}
+	return { events, load, create, update, remove, addTag, removeTag };
 }

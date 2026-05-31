@@ -15,5 +15,13 @@ export const CreateTagSchema = z
 	})
 	.openapi("CreateTag");
 
+export const UpdateTagSchema = z
+	.object({
+		name: z.string().min(1).optional(),
+		color: z.string().nullable().optional(),
+	})
+	.openapi("UpdateTag");
+
 export type Tag = z.infer<typeof TagSchema>;
 export type CreateTagInput = z.infer<typeof CreateTagSchema>;
+export type UpdateTagInput = z.infer<typeof UpdateTagSchema>;

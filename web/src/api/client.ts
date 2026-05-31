@@ -45,6 +45,13 @@ export type EventUpdate = Partial<{
 	tags: string[];
 }>;
 
+export type CalendarUpdate = Partial<{
+	name: string;
+	color: string | null;
+	description: string | null;
+}>;
+export type TagUpdate = Partial<{ name: string; color: string | null }>;
+
 export class ApiError extends Error {
 	constructor(
 		public readonly status: number,
@@ -85,8 +92,11 @@ export const api = {
 			method: "POST",
 			body: JSON.stringify(input),
 		}),
-	deleteCalendar: (id: string) =>
-		request<void>(`/calendars/${id}`, { method: "DELETE" }),
+	updateCalendar: (id: string, input: CalendarUpdate) =>
+		request<Calendar>(`/calendars/${id}`, {
+			method: "PATCH",
+			body: JSON.stringify(input),
+		}),
 
 	listEvents: (query: Record<string, string> = {}) => {
 		const qs = new URLSearchParams(query).toString();
@@ -110,6 +120,18 @@ export const api = {
 		}),
 	deleteEvent: (id: string) =>
 		request<void>(`/events/${id}`, { method: "DELETE" }),
+	addEventTag: (eventId: string, tagId: string) =>
+		request<Event>(`/events/${eventId}/tags/${tagId}`, { method: "POST" }),
+	removeEventTag: (eventId: string, tagId: string) =>
+		request<Event>(`/events/${eventId}/tags/${tagId}`, { method: "DELETE" }),
 
 	listTags: () => request<Tag[]>("/tags"),
+	createTag: (input: { name: string; color?: string }) =>
+		request<Tag>("/tags", { method: "POST", body: JSON.stringify(input) }),
+	updateTag: (id: string, input: TagUpdate) =>
+		request<Tag>(`/tags/${id}`, {
+			method: "PATCH",
+			body: JSON.stringify(input),
+		}),
+	deleteTag: (id: string) => request<void>(`/tags/${id}`, { method: "DELETE" }),
 };

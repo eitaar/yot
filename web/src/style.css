@@ -1,1 +1,80 @@
 @import "tailwindcss";
+
+/* Class-based dark mode: `dark:` utilities follow the `.dark` class on <html>
+   (toggled by useTheme from the OS prefers-color-scheme), not the media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+	--color-accent: #059669; /* emerald-600 */
+	--color-accent-hover: #047857; /* emerald-700 */
+	--radius-card: 0.75rem;
+}
+
+@layer base {
+	:root {
+		color-scheme: light;
+	}
+	.dark {
+		color-scheme: dark;
+	}
+	body {
+		@apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+	}
+}
+
+/* ---- Schedule-X reskin -------------------------------------------------------
+   The default theme defines its variables on :root (light) and .is-dark (dark).
+   Custom properties resolve from the nearest ancestor, so setting them on the
+   calendar wrapper overrides the defaults for the calendar subtree without
+   touching the rest of the app. `.dark .sx-vue-calendar-wrapper` handles dark. */
+.sx-vue-calendar-wrapper {
+	--sx-color-primary: #059669; /* emerald-600 */
+	--sx-color-on-primary: #ffffff;
+	--sx-color-primary-container: #d1fae5; /* emerald-100 — today/selected */
+	--sx-color-on-primary-container: #065f46; /* emerald-800 */
+
+	--sx-color-background: #ffffff;
+	--sx-color-surface: #ffffff;
+	--sx-color-surface-bright: #ffffff;
+	--sx-color-surface-dim: #f1f5f9; /* slate-100 */
+	--sx-color-surface-container: #f8fafc; /* slate-50 */
+	--sx-color-surface-container-low: #f8fafc;
+	--sx-color-surface-container-high: #f1f5f9;
+
+	--sx-color-on-background: #0f172a; /* slate-900 */
+	--sx-color-on-surface: #0f172a;
+	--sx-color-neutral: #475569; /* slate-600 */
+	--sx-color-neutral-variant: #64748b; /* slate-500 */
+
+	--sx-border: #e2e8f0; /* slate-200 */
+	--sx-color-outline: #cbd5e1; /* slate-300 */
+	--sx-color-outline-variant: #e2e8f0; /* slate-200 */
+
+	--sx-rounding-extra-small: 0.25rem;
+	--sx-rounding-small: 0.375rem;
+	--sx-rounding-extra-large: 0.75rem;
+}
+
+.dark .sx-vue-calendar-wrapper {
+	--sx-color-primary: #34d399; /* emerald-400 */
+	--sx-color-on-primary: #022c22; /* emerald-950 */
+	--sx-color-primary-container: #064e3b; /* emerald-900 */
+	--sx-color-on-primary-container: #d1fae5; /* emerald-100 */
+
+	--sx-color-background: #0f172a; /* slate-900 */
+	--sx-color-surface: #1e293b; /* slate-800 */
+	--sx-color-surface-bright: #334155; /* slate-700 */
+	--sx-color-surface-dim: #0f172a;
+	--sx-color-surface-container: #1e293b;
+	--sx-color-surface-container-low: #172033;
+	--sx-color-surface-container-high: #334155;
+
+	--sx-color-on-background: #e2e8f0; /* slate-200 */
+	--sx-color-on-surface: #e2e8f0;
+	--sx-color-neutral: #cbd5e1; /* slate-300 */
+	--sx-color-neutral-variant: #94a3b8; /* slate-400 */
+
+	--sx-border: #334155; /* slate-700 */
+	--sx-color-outline: #475569; /* slate-600 */
+	--sx-color-outline-variant: #334155; /* slate-700 */
+}
