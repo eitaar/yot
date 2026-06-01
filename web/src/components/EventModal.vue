@@ -35,6 +35,21 @@ const localMode = ref(props.mode);
 const error = ref("");
 const busy = ref(false);
 
+// Bottom-sheet slide animation (matches FilterSheet): the parent mounts this
+// modal via v-if, so it would otherwise appear already-open and skip DaisyUI's
+// modal-box slide. Instead we render closed, then flip `modal-open` on the next
+// frame so the translate (.3s) transition runs. Closing waits for the
+// slide-down before emitting `close`, since the parent unmounts on close.
+const open = ref(false);
+let closing = false;
+let closeTimer: number | undefined;
+function requestClose() {
+	if (closing) return;
+	closing = true;
+	open.value = false;
+	closeTimer = window.setTimeout(() => emit("close"), 300);
+}
+
 const form = reactive({
 	calendar_id: "",
 	title: "",
@@ -58,6 +73,12 @@ const calendar = computed(() =>
 function tagColor(name: string): string {
 	return props.tags.find((t) => t.name === name)?.color ?? "#64748b";
 }
+
+// Imported descriptions sometimes carry literal backslash-n instead of real
+// newlines; un-escape them so `whitespace-pre-wrap` renders proper line breaks.
+const descriptionText = computed(() =>
+	(props.event?.description ?? "").replace(/\\n/g, "\n"),
+);
 
 const dateRange = computed(() => {
 	const e = props.event;
@@ -200,7 +221,7 @@ function setError(message: string) {
 	error.value = message;
 	busy.value = false;
 }
-defineExpose({ setError });
+defineExpose({ setError, requestClose });
 
 const title = computed(() =>
 	localMode.value === "create"
@@ -211,22 +232,36 @@ const title = computed(() =>
 );
 
 function onKey(e: KeyboardEvent) {
-	if (e.key === "Escape") emit("close");
+	if (e.key === "Escape") requestClose();
 }
 onMounted(() => {
 	window.addEventListener("keydown", onKey);
 	if (props.mode === "create") fillEmpty();
 	else if (props.mode === "edit" && props.event) fillFromEvent(props.event);
+	// Two frames: let the closed state paint before flipping open so the
+	// modal-box translate transition actually fires.
+	requestAnimationFrame(() =>
+		requestAnimationFrame(() => {
+			open.value = true;
+		}),
+	);
 });
-onUnmounted(() => window.removeEventListener("keydown", onKey));
+onUnmounted(() => {
+	window.removeEventListener("keydown", onKey);
+	if (closeTimer) window.clearTimeout(closeTimer);
+});
 </script>
 
 <template>
-	<div class="modal modal-open modal-bottom sm:modal-middle" @click.self="emit('close')">
+	<div
+		class="modal modal-bottom sm:modal-middle"
+		:class="{ 'modal-open': open }"
+		@click.self="requestClose()"
+	>
 		<div class="modal-box max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto">
 			<div class="mb-4 flex items-start justify-between gap-2">
-				<h2 class="font-serif text-2xl leading-tight">{{ title }}</h2>
-				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
+				<h2 class="text-xl font-semibold leading-tight">{{ title }}</h2>
+				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="requestClose()">
 					<X :size="18" aria-hidden="true" />
 					<span class="sr-only">Close</span>
 				</button>
@@ -250,7 +285,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 					{{ event.location }}
 				</p>
 				<p v-if="event.description" class="whitespace-pre-wrap text-sm">
-					{{ event.description }}
+					{{ descriptionText }}
 				</p>
 				<div v-if="event.tags.length" class="flex flex-wrap gap-1">
 					<span
@@ -263,7 +298,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 					</span>
 				</div>
 				<div class="modal-action">
-					<button class="btn btn-ghost btn-sm" @click="emit('close')">Close</button>
+					<button class="btn btn-ghost btn-sm" @click="requestClose()">Close</button>
 					<button class="btn btn-primary btn-sm gap-1" @click="startEdit">
 						<Pencil :size="15" aria-hidden="true" />
 						Edit
@@ -378,7 +413,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 				<p v-if="error" class="text-sm text-error">{{ error }}</p>
 
 				<div class="modal-action">
-					<button type="button" class="btn btn-ghost btn-sm" @click="emit('close')">
+					<button type="button" class="btn btn-ghost btn-sm" @click="requestClose()">
 						Cancel
 					</button>
 					<button :disabled="busy" class="btn btn-primary btn-sm gap-1">

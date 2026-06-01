@@ -193,7 +193,7 @@ function addOnSelected() {
 			>
 				<ChevronLeft :size="18" aria-hidden="true" />
 			</button>
-			<h2 class="font-serif text-2xl">{{ periodLabel }}</h2>
+			<h2 class="text-xl font-semibold">{{ periodLabel }}</h2>
 			<button
 				type="button"
 				class="btn btn-ghost btn-sm btn-circle"
@@ -262,7 +262,7 @@ function addOnSelected() {
 
 		<!-- Selected day's events -->
 		<section class="mt-1">
-			<h3 class="px-1 pb-1 font-serif text-lg text-base-content/80">
+			<h3 class="px-1 pb-1 text-base font-semibold text-base-content/80">
 				{{ selectedLabel }}
 			</h3>
 			<ul v-if="selectedEvents.length" class="flex flex-col divide-y divide-base-200">

@@ -1,5 +1,8 @@
 import { onUnmounted, ref } from "vue";
 
+/** Which resource a broadcast change touched — lets callers reload only that slice. */
+export type ChangeResource = "calendar" | "event" | "tag";
+
 const CHANGE_EVENTS = [
 	"calendar.created",
 	"calendar.updated",
@@ -12,7 +15,7 @@ const CHANGE_EVENTS = [
 	"tag.deleted",
 ] as const;
 
-export function useSSE(onChange: () => void) {
+export function useSSE(onChange: (resource: ChangeResource) => void) {
 	const connected = ref(false);
 	let es: EventSource | null = null;
 	let retry: ReturnType<typeof setTimeout> | null = null;
@@ -28,7 +31,8 @@ export function useSSE(onChange: () => void) {
 			retry = setTimeout(connect, 2000);
 		};
 		for (const type of CHANGE_EVENTS) {
-			es.addEventListener(type, () => onChange());
+			const resource = type.split(".")[0] as ChangeResource;
+			es.addEventListener(type, () => onChange(resource));
 		}
 	}
 

@@ -219,3 +219,52 @@ test("list filters by calendar, date range, tag, and search, with pagination", (
 	assert.equal(events.list(query({ q: "workshop" })).length, 1);
 	assert.equal(events.list(query({ limit: 1 })).length, 1);
 });
+
+test("list hydrates each event's own tags and reminders, in start order", () => {
+	const tagA = tags.create({ name: "aa" });
+	const tagB = tags.create({ name: "bb" });
+
+	const first = events.create({
+		calendar_id: calId,
+		title: "First",
+		start_at: "2026-05-01T10:00:00Z",
+		end_at: "2026-05-01T11:00:00Z",
+		all_day: false,
+	});
+	const second = events.create({
+		calendar_id: calId,
+		title: "Second",
+		start_at: "2026-05-02T10:00:00Z",
+		end_at: "2026-05-02T11:00:00Z",
+		all_day: false,
+	});
+	// Third event carries no tags or reminders — must hydrate to empty arrays.
+	events.create({
+		calendar_id: calId,
+		title: "Third",
+		start_at: "2026-05-03T10:00:00Z",
+		end_at: "2026-05-03T11:00:00Z",
+		all_day: false,
+	});
+
+	events.addTag(first.id, tagB.id);
+	events.addTag(first.id, tagA.id);
+	events.addTag(second.id, tagA.id);
+	events.addReminder(first.id, { minutes_before: 10, method: "notification" });
+	events.addReminder(first.id, { minutes_before: 60, method: "notification" });
+
+	const list = events.list(query());
+	assert.deepEqual(
+		list.map((e) => e.title),
+		["First", "Second", "Third"],
+	);
+	assert.deepEqual(list[0].tags, ["aa", "bb"]); // grouped to the right event, name-ordered
+	assert.deepEqual(list[1].tags, ["aa"]);
+	assert.deepEqual(list[2].tags, []);
+	assert.deepEqual(
+		list[0].reminders.map((r) => r.minutes_before),
+		[60, 10], // minutes_before DESC
+	);
+	assert.deepEqual(list[1].reminders, []);
+	assert.deepEqual(list[2].reminders, []);
+});

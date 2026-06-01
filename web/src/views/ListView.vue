@@ -11,7 +11,8 @@ import { useComposer } from "@/composables/useComposer";
 import { useEvents } from "@/composables/useEvents";
 import { useFilterSheet } from "@/composables/useFilterSheet";
 import { useFilters } from "@/composables/useFilters";
-import { useSSE } from "@/composables/useSSE";
+import { coalesce } from "@/composables/useRefresh";
+import { type ChangeResource, useSSE } from "@/composables/useSSE";
 import { useTags } from "@/composables/useTags";
 
 const {
@@ -61,14 +62,40 @@ function query(): Record<string, string> {
 	return q;
 }
 
-async function refresh() {
-	await Promise.all([loadCals(), loadTags(), loadEvents(query())]);
-	syncCalendars(calendars.value.map((c) => c.id));
+// Reload only what changed, coalescing the post-mutation refresh with the SSE
+// broadcast it triggers (and any SSE bursts) into a single fetch cycle.
+const dirty = new Set<ChangeResource>();
+
+async function runRefresh() {
+	const want = new Set(dirty);
+	dirty.clear();
+	const jobs: Promise<unknown>[] = [];
+	if (want.has("calendar")) jobs.push(loadCals());
+	if (want.has("tag")) jobs.push(loadTags());
+	if (want.has("event")) jobs.push(loadEvents(query()));
+	await Promise.all(jobs);
+	if (want.has("calendar")) syncCalendars(calendars.value.map((c) => c.id));
+}
+
+const flush = coalesce(runRefresh);
+
+function refresh(...resources: ChangeResource[]): Promise<void> {
+	for (const r of resources) dirty.add(r);
+	return flush();
+}
+
+function refreshAll(): Promise<void> {
+	return refresh("calendar", "tag", "event");
+}
+
+// Search and tag filter both reshape the server-side event query.
+function runSearch(): Promise<void> {
+	return refresh("event");
 }
 
 const visibleEvents = computed(() => applyCalendarFilter(events.value));
 
-watch(selectedTag, refresh);
+watch(selectedTag, () => refresh("event"));
 
 function closeModal() {
 	modalMode.value = null;
@@ -102,8 +129,8 @@ async function onCreate(
 	try {
 		const created = await addEvent(input);
 		for (const tagId of tagIds) await addEventTag(created.id, tagId);
-		await refresh();
-		closeModal();
+		await refresh("event");
+		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
 	}
@@ -124,8 +151,8 @@ async function onSave(
 		for (const tagId of current) {
 			if (!desired.has(tagId)) await removeEventTag(id, tagId);
 		}
-		await refresh();
-		closeModal();
+		await refresh("event");
+		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
 	}
@@ -137,8 +164,8 @@ watch(
 	() => openCreate(),
 );
 
-const { connected } = useSSE(refresh);
-onMounted(refresh);
+const { connected } = useSSE((resource) => refresh(resource));
+onMounted(refreshAll);
 </script>
 
 <template>
@@ -174,9 +201,9 @@ onMounted(refresh);
 						v-model="search"
 						placeholder="Search events"
 						class="input input-sm join-item w-full sm:w-72"
-						@keyup.enter="refresh"
+						@keyup.enter="runSearch"
 					/>
-					<button class="btn btn-neutral btn-sm join-item gap-1 px-2" @click="refresh">
+					<button class="btn btn-neutral btn-sm join-item gap-1 px-2" @click="runSearch">
 						<Search :size="15" aria-hidden="true" />
 						<span class="hidden sm:inline">Search</span>
 					</button>

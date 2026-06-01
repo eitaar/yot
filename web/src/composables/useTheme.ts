@@ -28,7 +28,9 @@ const resolvedTheme = ref<"light" | "dark">(resolved());
 function apply() {
 	const next = resolved();
 	resolvedTheme.value = next;
-	document.documentElement.dataset.theme = next;
+	// Map the resolved light/dark mode onto the DaisyUI palettes we ship.
+	document.documentElement.dataset.theme =
+		next === "dark" ? "forest" : "emerald";
 }
 
 function setMode(next: ThemeMode) {

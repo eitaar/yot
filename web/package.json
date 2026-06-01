@@ -8,8 +8,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@fontsource/instrument-serif": "^5.2.8",
-		"@fontsource/inter": "^5.2.8",
+		"@fontsource/rubik": "^5.2.8",
 		"@lucide/vue": "^1.17.0",
 		"@schedule-x/calendar": "^2.34.0",
 		"@schedule-x/calendar-controls": "^4.6.0",

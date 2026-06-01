@@ -9,6 +9,8 @@ import {
 	select,
 	text,
 } from "@clack/prompts";
+import { type ApiKey, ApiKeyService } from "../src/auth/apikey.js";
+import { openDb } from "../src/db/connection.js";
 
 const envPath = resolve(process.argv[2] ?? ".env");
 
@@ -46,6 +48,95 @@ function formatValues(v: ReturnType<typeof getCurrentValues>) {
 	return `PORT     ${v.PORT}\nDB_PATH  ${v.DB_PATH}\nMCP_AUTH ${v.MCP_AUTH}`;
 }
 
+function formatKeys(keys: ApiKey[]): string {
+	if (keys.length === 0) return "No API keys yet.";
+	return keys
+		.map((k) => {
+			const id = k.id.slice(0, 8);
+			const label = k.name ?? "(unnamed)";
+			const state = k.revoked ? "REVOKED" : "active";
+			const used = k.last_used_at ?? "never";
+			return `${id}  ${label}  [${k.scope}]  ${state}\n   created ${k.created_at}  ·  last used ${used}`;
+		})
+		.join("\n");
+}
+
+/** List / create / revoke API keys, reusing the backend ApiKeyService. */
+async function manageApiKeys(): Promise<void> {
+	// openDb applies the schema, so this also initializes a fresh database.
+	const db = openDb(process.env.DB_PATH ?? "data.db");
+	const apiKeys = new ApiKeyService(db);
+	try {
+		while (true) {
+			const action = await select({
+				message: "API keys",
+				options: [
+					{ value: "list", label: "List keys" },
+					{ value: "create", label: "Create key" },
+					{ value: "revoke", label: "Revoke key" },
+					{ value: "back", label: "Back" },
+				],
+			});
+			if (isCancel(action)) cancelled();
+			if (action === "back") return;
+
+			if (action === "list") {
+				note(formatKeys(apiKeys.list()), "API keys");
+			} else if (action === "create") {
+				const name = await text({
+					message: "Label for this key",
+					placeholder: "cli, mobile, ...",
+					defaultValue: "default",
+				});
+				if (isCancel(name)) cancelled();
+
+				const scope = await select({
+					message: "Scope",
+					options: [
+						{ value: "write", label: "write — full read/write access" },
+						{ value: "read", label: "read — read-only access" },
+					],
+				});
+				if (isCancel(scope)) cancelled();
+
+				const { raw } = apiKeys.create(
+					String(name) || null,
+					scope as "read" | "write",
+				);
+				process.env.YOT_API_KEY = raw;
+				updateEnvFile(envPath, { YOT_API_KEY: raw });
+				note(raw, "Your API key (shown once — store it now)");
+			} else if (action === "revoke") {
+				const active = apiKeys.list().filter((k) => !k.revoked);
+				if (active.length === 0) {
+					note("No active keys to revoke.", "API keys");
+					continue;
+				}
+				const id = await select({
+					message: "Revoke which key?",
+					options: active.map((k) => ({
+						value: k.id,
+						label: `${k.name ?? "(unnamed)"} · ${k.id.slice(0, 8)} · ${k.scope}`,
+					})),
+				});
+				if (isCancel(id)) cancelled();
+
+				const ok = await confirm({
+					message: "Revoke this key? Clients using it will stop working.",
+					initialValue: false,
+				});
+				if (isCancel(ok)) cancelled();
+				if (ok) {
+					apiKeys.revoke(String(id));
+					note("Key revoked.", "API keys");
+				}
+			}
+		}
+	} finally {
+		db.close();
+	}
+}
+
 async function main() {
 	intro("Calendar backend — configuration");
 	note(formatValues(getCurrentValues()), `Current config  (${envPath})`);
@@ -60,11 +151,16 @@ async function main() {
 					value: "MCP_AUTH",
 					label: "MCP_AUTH — require YOT_API_KEY for the MCP server",
 				},
+				{ value: "API_KEYS", label: "API keys — list / create / revoke" },
 				{ value: "done", label: "Done" },
 			],
 		});
 		if (isCancel(setting)) cancelled();
 		if (setting === "done") break;
+		if (setting === "API_KEYS") {
+			await manageApiKeys();
+			continue;
+		}
 
 		if (setting === "PORT") {
 			const val = await text({
