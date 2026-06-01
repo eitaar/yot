@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { CalendarDays, Images, List, LogOut, MoreHorizontal } from "@lucide/vue";
+import { CalendarDays, Images, List, LogOut, MoreHorizontal, Upload } from "@lucide/vue";
 import { useRoute, useRouter } from "vue-router";
 import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useImport } from "@/composables/useImport";
 
 // Mobile-only bottom navigation: primary destinations + an overflow menu for
 // theme / install / logout. Hidden at lg and up.
 const route = useRoute();
 const router = useRouter();
 const { logout } = useAuth();
+const imp = useImport();
 
 function isActive(name: string): boolean {
 	return route.name === name;
@@ -63,6 +65,10 @@ async function onLogout() {
 						<ThemeToggle />
 					</div>
 					<PWAInstallButton class="w-full" />
+					<button class="btn btn-ghost btn-sm w-full justify-start gap-2" @click="imp.open()">
+						<Upload :size="16" aria-hidden="true" />
+						Import .ics
+					</button>
 					<button class="btn btn-ghost btn-sm w-full justify-start gap-2" @click="onLogout">
 						<LogOut :size="16" aria-hidden="true" />
 						Log out
