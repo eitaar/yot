@@ -103,7 +103,7 @@ async function onCreate(
 		const created = await addEvent(input);
 		for (const tagId of tagIds) await addEventTag(created.id, tagId);
 		await refresh();
-		closeModal();
+		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
 	}
@@ -125,7 +125,7 @@ async function onSave(
 			if (!desired.has(tagId)) await removeEventTag(id, tagId);
 		}
 		await refresh();
-		closeModal();
+		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
 	}
