@@ -25,7 +25,8 @@ export class ImageService {
 	constructor(private readonly dir: string) {}
 
 	assertSafeName(name: string): void {
-		if (!NAME_RE.test(name)) throw new ValidationError(`Unsafe image name: ${name}`);
+		if (!NAME_RE.test(name))
+			throw new ValidationError(`Unsafe image name: ${name}`);
 	}
 
 	absPath(name: string): string {
@@ -48,7 +49,8 @@ export class ImageService {
 
 	saveBytes(bytes: Uint8Array, mime: string): string {
 		const ext = MIME_EXT[mime];
-		if (!ext) throw new ValidationError(`Unsupported image type: ${mime || "unknown"}`);
+		if (!ext)
+			throw new ValidationError(`Unsupported image type: ${mime || "unknown"}`);
 		if (bytes.byteLength > MAX_BYTES)
 			throw new ValidationError("Image exceeds the 5 MB limit");
 		this.ensureDir();

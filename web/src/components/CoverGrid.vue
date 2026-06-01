@@ -44,7 +44,11 @@ function cardStyle(e: Event): Record<string, string> {
 
 function when(e: Event): string {
 	const d = new Date(e.start_at);
-	const date = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+	const date = d.toLocaleDateString([], {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+	});
 	if (e.all_day) return `${date} · All day`;
 	return `${date} · ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }

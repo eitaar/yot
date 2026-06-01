@@ -24,7 +24,10 @@ test("saveBytes writes a file and read round-trips it", () => {
 });
 
 test("saveBytes rejects unsupported mime and oversize", () => {
-	assert.throws(() => images.saveBytes(new Uint8Array([0]), "text/plain"), ValidationError);
+	assert.throws(
+		() => images.saveBytes(new Uint8Array([0]), "text/plain"),
+		ValidationError,
+	);
 	const big = new Uint8Array(5 * 1024 * 1024 + 1);
 	assert.throws(() => images.saveBytes(big, "image/png"), ValidationError);
 });
@@ -37,7 +40,10 @@ test("assertSafeName rejects traversal and odd names", () => {
 
 test("exists is false for unsafe or missing names", () => {
 	assert.equal(images.exists("../x"), false);
-	assert.equal(images.exists("11111111-1111-4111-8111-111111111111.png"), false);
+	assert.equal(
+		images.exists("11111111-1111-4111-8111-111111111111.png"),
+		false,
+	);
 });
 
 test("remove never throws for missing files", () => {
@@ -57,8 +63,14 @@ test("isPrivateHost flags loopback/private and clears public", async () => {
 });
 
 test("saveFromUrl rejects non-http and private hosts without network", async () => {
-	await assert.rejects(() => images.saveFromUrl("ftp://example.com/x.png"), ValidationError);
-	await assert.rejects(() => images.saveFromUrl("http://127.0.0.1/x.png"), ValidationError);
+	await assert.rejects(
+		() => images.saveFromUrl("ftp://example.com/x.png"),
+		ValidationError,
+	);
+	await assert.rejects(
+		() => images.saveFromUrl("http://127.0.0.1/x.png"),
+		ValidationError,
+	);
 });
 
 test("isPrivateHost blocks IPv4-mapped IPv6 (hex and dotted forms)", async () => {

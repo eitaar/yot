@@ -347,7 +347,9 @@ test("delete calls the injected image remover with the stored image_path", () =>
 		image_path: "gone.png",
 	});
 	const spyBus = new EventBus();
-	const spyEvents = new EventService(dbRef, spyBus, { remove: (n) => removed.push(n) });
+	const spyEvents = new EventService(dbRef, spyBus, {
+		remove: (n) => removed.push(n),
+	});
 	spyEvents.delete(ev.id);
 	assert.deepEqual(removed, ["gone.png"]);
 });
@@ -362,7 +364,9 @@ test("delete does not call the remover when the event has no image", () => {
 		all_day: false,
 	});
 	const spyBus = new EventBus();
-	const spyEvents = new EventService(dbRef, spyBus, { remove: (n) => removed.push(n) });
+	const spyEvents = new EventService(dbRef, spyBus, {
+		remove: (n) => removed.push(n),
+	});
 	spyEvents.delete(ev.id);
 	assert.deepEqual(removed, []);
 });

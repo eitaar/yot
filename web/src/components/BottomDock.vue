@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { CalendarDays, Images, List, LogOut, MoreHorizontal, Upload } from "@lucide/vue";
+import {
+	CalendarDays,
+	Images,
+	List,
+	LogOut,
+	MoreHorizontal,
+	Upload,
+} from "@lucide/vue";
 import { useRoute, useRouter } from "vue-router";
 import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";

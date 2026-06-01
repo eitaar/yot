@@ -7,9 +7,9 @@ import Database from "better-sqlite3";
 import { openDb } from "./connection.js";
 
 function columnNames(db: Database.Database, table: string): string[] {
-	return (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(
-		(c) => c.name,
-	);
+	return (
+		db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+	).map((c) => c.name);
 }
 
 test("openDb adds columns missing from an older events table", () => {
@@ -84,10 +84,13 @@ test("openDb on a legacy db creates the source_uid index after migrating", () =>
 	old.close();
 
 	const db = openDb(file);
-	const indexes = (db.prepare("PRAGMA index_list(events)").all() as { name: string }[]).map(
-		(i) => i.name,
+	const indexes = (
+		db.prepare("PRAGMA index_list(events)").all() as { name: string }[]
+	).map((i) => i.name);
+	assert.ok(
+		indexes.includes("idx_events_source_uid"),
+		"source_uid index created",
 	);
-	assert.ok(indexes.includes("idx_events_source_uid"), "source_uid index created");
 	db.close();
 	rmSync(dir, { recursive: true, force: true });
 });

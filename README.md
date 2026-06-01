@@ -88,8 +88,10 @@ calendars ──< events ──< reminders
 ```
 
 - **Calendar** — `name`, `color`, `description`
-- **Event** — belongs to a calendar; `title`, `description`, `location`,
-  `start_at`, `end_at`, `all_day`; carries `tags` (names) and `reminders`
+- **Event** — belongs to a calendar; `title`, `description` (rendered as Markdown
+  in the web UI), `location`, `start_at`, `end_at`, `all_day`, optional
+  `image_path` (cover image stored under `data/img/`) and `url`; carries `tags`
+  (names) and `reminders`
 - **Reminder** — `minutes_before`, `method` (stored metadata; the server does not fire them)
 - **Tag** — unique `name`, `color`; linked to events many-to-many
 
@@ -112,6 +114,10 @@ Base path `/api`. Interactive docs at **`/api/ui`**; raw OpenAPI at **`/api/doc`
 | `GET` `PATCH` `DELETE` | `/events/{id}`                 |                                                               |
 | `POST`                 | `/events/{id}/reminders`       |                                                               |
 | `DELETE`               | `/events/{id}/reminders/{rid}` |                                                               |
+| `POST`                 | `/events/import`               | multipart `.ics` import (skips recurring)                     |
+| `POST`                 | `/uploads/image`               | multipart cover-image upload                                  |
+| `POST`                 | `/uploads/image-from-url`      | fetch a remote image into `data/img/`                         |
+| `GET`                  | `/img/{file}`                  | serve a stored cover image                                    |
 | `POST` `DELETE`        | `/events/{id}/tags/{tagId}`    | attach / detach a tag                                         |
 | `GET` `POST`           | `/tags`                        |                                                               |
 | `DELETE`               | `/tags/{id}`                   |                                                               |
