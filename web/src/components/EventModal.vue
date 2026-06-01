@@ -59,6 +59,12 @@ function tagColor(name: string): string {
 	return props.tags.find((t) => t.name === name)?.color ?? "#64748b";
 }
 
+// Imported descriptions sometimes carry literal backslash-n instead of real
+// newlines; un-escape them so `whitespace-pre-wrap` renders proper line breaks.
+const descriptionText = computed(() =>
+	(props.event?.description ?? "").replace(/\\n/g, "\n"),
+);
+
 const dateRange = computed(() => {
 	const e = props.event;
 	if (!e) return "";
@@ -225,7 +231,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 	<div class="modal modal-open modal-bottom sm:modal-middle" @click.self="emit('close')">
 		<div class="modal-box max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto">
 			<div class="mb-4 flex items-start justify-between gap-2">
-				<h2 class="font-serif text-2xl leading-tight">{{ title }}</h2>
+				<h2 class="text-xl font-semibold leading-tight">{{ title }}</h2>
 				<button type="button" class="btn btn-ghost btn-sm btn-circle" @click="emit('close')">
 					<X :size="18" aria-hidden="true" />
 					<span class="sr-only">Close</span>
@@ -250,7 +256,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
 					{{ event.location }}
 				</p>
 				<p v-if="event.description" class="whitespace-pre-wrap text-sm">
-					{{ event.description }}
+					{{ descriptionText }}
 				</p>
 				<div v-if="event.tags.length" class="flex flex-wrap gap-1">
 					<span

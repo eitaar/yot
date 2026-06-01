@@ -78,7 +78,7 @@ function eventTime(e: Event): string {
 	<div v-if="groups.length" class="flex flex-col gap-3 pb-2">
 		<section v-for="g in groups" :key="g.key">
 			<h2
-				class="sticky top-0 z-10 bg-base-100/95 px-1 py-2 font-serif text-lg text-base-content/80 backdrop-blur"
+				class="sticky top-0 z-10 bg-base-100/95 px-1 py-2 text-base font-semibold text-base-content/80 backdrop-blur"
 			>
 				{{ g.label }}
 			</h2>

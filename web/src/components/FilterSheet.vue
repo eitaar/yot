@@ -27,7 +27,7 @@ const { isOpen, close } = useFilterSheet();
 	>
 		<div class="modal-box max-h-[85dvh] pb-[calc(1rem+env(safe-area-inset-bottom))]">
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="font-serif text-xl">Filters</h2>
+				<h2 class="text-xl font-semibold">Filters</h2>
 				<div class="flex items-center gap-2">
 					<span
 						class="badge badge-sm gap-1"

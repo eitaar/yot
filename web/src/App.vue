@@ -47,7 +47,7 @@ async function onLogout() {
 				</button>
 				<span class="flex items-center gap-2 px-2 lg:px-2">
 					<span class="inline-block h-4 w-4 rounded bg-primary" />
-					<span class="font-serif text-xl leading-none">yot</span>
+					<span class="text-xl font-semibold leading-none">yot</span>
 				</span>
 				<!-- Desktop top-nav; on mobile these live in the bottom dock. -->
 				<nav class="ml-1 hidden gap-1 lg:flex">

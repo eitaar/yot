@@ -80,7 +80,8 @@ function confirmDeleteTag(t: Tag) {
 	blurActive();
 }
 
-const sectionHeader = "font-serif text-base text-base-content/70";
+const sectionHeader =
+	"text-xs font-semibold uppercase tracking-wide text-base-content/60";
 const optionsTrigger =
 	"btn btn-ghost btn-xs opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100";
 const optionsPanel =
