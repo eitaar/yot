@@ -8,20 +8,19 @@ export function useEvents() {
 	async function load(query: Record<string, string> = {}) {
 		events.value = await api.listEvents(query);
 	}
+	// Mutations don't reload here: callers refresh once (scoped + coalesced) after
+	// the mutation, and the SSE broadcast triggers the same refresh. Reloading
+	// here too would fetch the full list an extra time, with the wrong query.
 	async function create(
 		input: Parameters<typeof api.createEvent>[0],
 	): Promise<Event> {
-		const created = await api.createEvent(input);
-		await load();
-		return created;
+		return await api.createEvent(input);
 	}
 	async function update(id: string, input: EventUpdate) {
 		await api.updateEvent(id, input);
-		await load();
 	}
 	async function remove(id: string) {
 		await api.deleteEvent(id);
-		await load();
 	}
 	// Tag assign/unassign: no reload — the modal batches these then refreshes once.
 	async function addTag(eventId: string, tagId: string) {

@@ -99,7 +99,7 @@ export class EventService {
 				`SELECT e.* FROM events e ${join} ${where} ORDER BY e.start_at LIMIT @limit OFFSET @offset`,
 			)
 			.all(params) as EventRow[];
-		return rows.map((r) => this.hydrate(r));
+		return this.hydrateMany(rows);
 	}
 
 	update(id: string, input: UpdateEventInput): Event {
@@ -208,18 +208,47 @@ export class EventService {
 
 	/** Attach tag names and reminders to a raw row and convert all_day to boolean. */
 	private hydrate(row: EventRow): Event {
+		return this.hydrateMany([row])[0];
+	}
+
+	/**
+	 * Hydrate many rows at once. Fetches every row's tags and reminders in two
+	 * queries total (rather than two per row), avoiding the N+1 that `list()`
+	 * would otherwise incur. Output order matches the input `rows` order.
+	 */
+	private hydrateMany(rows: EventRow[]): Event[] {
+		if (rows.length === 0) return [];
+		const ids = rows.map((r) => r.id);
+		const placeholders = ids.map(() => "?").join(", ");
+
+		const tagsByEvent = new Map<string, string[]>();
 		const tagRows = this.db
 			.prepare(
-				`SELECT t.name FROM tags t JOIN event_tags et ON et.tag_id = t.id
-				 WHERE et.event_id = ? ORDER BY t.name`,
+				`SELECT et.event_id AS event_id, t.name AS name
+				 FROM tags t JOIN event_tags et ON et.tag_id = t.id
+				 WHERE et.event_id IN (${placeholders}) ORDER BY t.name`,
 			)
-			.all(row.id) as { name: string }[];
-		const reminders = this.db
+			.all(...ids) as { event_id: string; name: string }[];
+		for (const { event_id, name } of tagRows) {
+			const arr = tagsByEvent.get(event_id);
+			if (arr) arr.push(name);
+			else tagsByEvent.set(event_id, [name]);
+		}
+
+		const remindersByEvent = new Map<string, Reminder[]>();
+		const reminderRows = this.db
 			.prepare(
-				`SELECT * FROM reminders WHERE event_id = ? ORDER BY minutes_before DESC`,
+				`SELECT * FROM reminders WHERE event_id IN (${placeholders})
+				 ORDER BY minutes_before DESC`,
 			)
-			.all(row.id) as Reminder[];
-		return {
+			.all(...ids) as Reminder[];
+		for (const reminder of reminderRows) {
+			const arr = remindersByEvent.get(reminder.event_id);
+			if (arr) arr.push(reminder);
+			else remindersByEvent.set(reminder.event_id, [reminder]);
+		}
+
+		return rows.map((row) => ({
 			id: row.id,
 			calendar_id: row.calendar_id,
 			title: row.title,
@@ -230,9 +259,9 @@ export class EventService {
 			all_day: row.all_day === 1,
 			created_at: row.created_at,
 			updated_at: row.updated_at,
-			tags: tagRows.map((r) => r.name),
-			reminders,
-		};
+			tags: tagsByEvent.get(row.id) ?? [],
+			reminders: remindersByEvent.get(row.id) ?? [],
+		}));
 	}
 
 	private assertOrder(start: string, end: string): void {

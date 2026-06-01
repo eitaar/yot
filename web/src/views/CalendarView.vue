@@ -1,31 +1,7 @@
 <script setup lang="ts">
-import {
-	CalendarDays,
-	Grid3X3,
-	List,
-	Plus,
-	SlidersHorizontal,
-} from "@lucide/vue";
-import {
-	type CalendarType,
-	createCalendar,
-	createViewDay,
-	createViewMonthAgenda,
-	createViewMonthGrid,
-	createViewWeek,
-	viewMonthGrid,
-} from "@schedule-x/calendar";
-import { createCalendarControlsPlugin } from "@schedule-x/calendar-controls";
-import { createCurrentTimePlugin } from "@schedule-x/current-time";
-import { createEventsServicePlugin } from "@schedule-x/events-service";
-import { ScheduleXCalendar } from "@schedule-x/vue";
-import "@schedule-x/theme-default/dist/index.css";
-import { computed, onMounted, ref, watch } from "vue";
+import { SlidersHorizontal } from "@lucide/vue";
+import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
 import type { Event, Tag } from "@/api/client";
-import DateGridEvent from "@/components/calendar/DateGridEvent.vue";
-import MonthAgendaEvent from "@/components/calendar/MonthAgendaEvent.vue";
-import MonthGridEvent from "@/components/calendar/MonthGridEvent.vue";
-import TimeGridEvent from "@/components/calendar/TimeGridEvent.vue";
 import EventModal from "@/components/EventModal.vue";
 import FilterSheet from "@/components/FilterSheet.vue";
 import MobileCalendar from "@/components/MobileCalendar.vue";
@@ -36,9 +12,16 @@ import { useEvents } from "@/composables/useEvents";
 import { useFilterSheet } from "@/composables/useFilterSheet";
 import { useFilters } from "@/composables/useFilters";
 import { useIsDesktop } from "@/composables/useMediaQuery";
-import { useSSE } from "@/composables/useSSE";
+import { coalesce } from "@/composables/useRefresh";
+import { type ChangeResource, useSSE } from "@/composables/useSSE";
 import { useTags } from "@/composables/useTags";
 import { useTheme } from "@/composables/useTheme";
+
+// Lazily loaded so the ~210 kB Schedule-X engine + theme ship only to desktop
+// visitors; mobile uses the much lighter MobileCalendar.
+const DesktopCalendar = defineAsyncComponent(
+	() => import("@/components/calendar/DesktopCalendar.vue"),
+);
 
 const {
 	calendars,
@@ -85,150 +68,44 @@ const modalMode = ref<"create" | "view" | "edit" | null>(null);
 const selected = ref<Event | null>(null);
 const createPrefill = ref<ComposerPrefill | null>(null);
 const modalRef = ref<InstanceType<typeof EventModal> | null>(null);
-type CalendarViewName = "month-grid" | "week" | "day" | "month-agenda";
-const currentView = ref<CalendarViewName>("month-grid");
-const viewOptions: Array<{
-	name: CalendarViewName;
-	label: string;
-	icon: typeof Grid3X3;
-}> = [
-	{ name: "month-grid", label: "Month", icon: Grid3X3 },
-	{ name: "week", label: "Week", icon: CalendarDays },
-	{ name: "day", label: "Day", icon: CalendarDays },
-	{ name: "month-agenda", label: "Agenda", icon: List },
-];
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-const eventsService = createEventsServicePlugin();
-const calendarControls = createCalendarControlsPlugin();
-const currentTimePlugin = createCurrentTimePlugin({ fullWeekWidth: true });
-
-// Rich event chips — Schedule-X drops its default background/text when a custom
-// component is supplied, so these own the full appearance (see sx-event.ts).
-const customComponents = {
-	monthGridEvent: MonthGridEvent,
-	timeGridEvent: TimeGridEvent,
-	dateGridEvent: DateGridEvent,
-	monthAgendaEvent: MonthAgendaEvent,
-};
-
-const calendarApp = createCalendar(
-	{
-		defaultView: viewMonthGrid.name,
-		isResponsive: false,
-		isDark: resolvedTheme.value === "dark",
-		monthGridOptions: { nEventsPerDay: 3 },
-		weekOptions: {
-			gridHeight: 980,
-			nDays: 7,
-			eventWidth: 96,
-			eventOverlap: true,
-			timeAxisFormatOptions: { hour: "2-digit" },
-		},
-		views: [
-			createViewMonthGrid(),
-			createViewWeek(),
-			createViewDay(),
-			createViewMonthAgenda(),
-		],
-		events: [],
-		callbacks: {
-			onEventClick(e) {
-				const full = events.value.find((ev) => ev.id === String(e.id));
-				if (full) {
-					selected.value = full;
-					modalMode.value = "view";
-				}
-			},
-			onClickDateTime(dateTime) {
-				openCreate({
-					start: dateTime.replace(" ", "T"),
-					end: plusHour(dateTime),
-					all_day: false,
-				});
-			},
-			onClickDate(date) {
-				openCreate({ start: date, end: date, all_day: true });
-			},
-		},
-	},
-	[eventsService, calendarControls, currentTimePlugin],
-);
-
-// Keep Schedule-X in lockstep with the DaisyUI theme (fixes calendar text that
-// otherwise stays dark when switching themes).
-watch(resolvedTheme, (t) => calendarApp.setTheme(t));
-
+// Calendar filtering is client-side (DesktopCalendar/MobileCalendar both render
+// this already-filtered set), so toggling calendars needs no refetch.
 const visibleEvents = computed(() => applyCalendarFilter(events.value));
-const visibleEventsCount = computed(() => visibleEvents.value.length);
 const activeCalendarCount = computed(() => enabledCalendarIds.value.size);
 
-function toSx(iso: string, allDay: boolean): string {
-	const d = new Date(iso);
-	const p = (n: number) => String(n).padStart(2, "0");
-	const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-	return allDay ? date : `${date} ${p(d.getHours())}:${p(d.getMinutes())}`;
+// Reload only the resources that actually changed, coalescing the bursts that
+// come from a mutation's own refresh racing the SSE broadcast it triggers.
+// An event change reloads just the events (1 request) instead of also pulling
+// calendars and tags.
+const dirty = new Set<ChangeResource>();
+
+async function runRefresh() {
+	const want = new Set(dirty);
+	dirty.clear();
+	const jobs: Promise<unknown>[] = [];
+	if (want.has("calendar")) jobs.push(loadCals());
+	if (want.has("tag")) jobs.push(loadTags());
+	if (want.has("event")) jobs.push(loadEvents(buildQuery()));
+	await Promise.all(jobs);
+	if (want.has("calendar")) syncCalendars(calendars.value.map((c) => c.id));
 }
 
-function plusHour(dateTime: string): string {
-	const d = new Date(dateTime.replace(" ", "T"));
-	d.setHours(d.getHours() + 1);
-	const p = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+const flush = coalesce(runRefresh);
+
+function refresh(...resources: ChangeResource[]): Promise<void> {
+	for (const r of resources) dirty.add(r);
+	return flush();
 }
 
-function tagColor(name: string): string {
-	return tags.value.find((t) => t.name === name)?.color ?? "#64748b";
+function refreshAll(): Promise<void> {
+	return refresh("calendar", "tag", "event");
 }
 
-function syncColors() {
-	const map: Record<string, CalendarType> = {};
-	for (const c of calendars.value) {
-		const hex = c.color ?? "#3b82f6";
-		map[c.id] = {
-			colorName: c.id,
-			label: c.name,
-			lightColors: { main: hex, container: hex, onContainer: "#ffffff" },
-		};
-	}
-	calendarControls.setCalendars(map);
-}
-
-function syncEvents() {
-	const visible = applyCalendarFilter(events.value);
-	eventsService.set(
-		visible.map((e) => ({
-			id: e.id,
-			title: e.title,
-			calendarId: e.calendar_id,
-			start: toSx(e.start_at, e.all_day),
-			end: toSx(e.end_at, e.all_day),
-			// Custom props — Schedule-X preserves these and hands them back to
-			// the custom event components verbatim.
-			description: e.description ?? undefined,
-			location: e.location ?? undefined,
-			_allDay: e.all_day,
-			_calColor:
-				calendars.value.find((c) => c.id === e.calendar_id)?.color ?? "#3b82f6",
-			_tags: e.tags.map((name) => ({ name, color: tagColor(name) })),
-		})),
-	);
-}
-
-async function refresh() {
-	await Promise.all([loadCals(), loadTags(), loadEvents(buildQuery())]);
-	syncCalendars(calendars.value.map((c) => c.id));
-	syncColors();
-	syncEvents();
-}
-
-// Tag filter is server-side → refetch; calendar filter is client-side → re-sync.
-watch(selectedTag, async () => {
-	await loadEvents(buildQuery());
-	syncEvents();
-});
-watch(enabledCalendarIds, () => syncEvents(), { deep: true });
+// Tag filter is server-side → refetch events.
+watch(selectedTag, () => refresh("event"));
 
 // The bottom dock's "+ New" lives outside this view; it bumps the composer.
 watch(
@@ -248,11 +125,6 @@ function openCreate(prefill: ComposerPrefill | null = null) {
 	modalMode.value = "create";
 }
 
-function setCalendarView(view: CalendarViewName) {
-	currentView.value = view;
-	calendarControls.setView(view);
-}
-
 function tagIdsOf(names: string[]): Set<string> {
 	return new Set(
 		names
@@ -268,7 +140,7 @@ async function onCreate(
 	try {
 		const created = await addEvent(input);
 		for (const tagId of tagIds) await addEventTag(created.id, tagId);
-		await refresh();
+		await refresh("event");
 		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
@@ -290,7 +162,7 @@ async function onSave(
 		for (const tagId of current) {
 			if (!desired.has(tagId)) await removeEventTag(id, tagId);
 		}
-		await refresh();
+		await refresh("event");
 		modalRef.value?.requestClose();
 	} catch (e) {
 		modalRef.value?.setError(msg(e));
@@ -302,8 +174,8 @@ function openView(e: Event) {
 	modalMode.value = "view";
 }
 
-const { connected } = useSSE(refresh);
-onMounted(refresh);
+const { connected } = useSSE((resource) => refresh(resource));
+onMounted(refreshAll);
 </script>
 
 <template>
@@ -326,43 +198,18 @@ onMounted(refresh);
 			@delete-tag="(id) => removeTag(id)"
 		/>
 		<div class="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-4">
-			<!-- Desktop: full Schedule-X grid + controls -->
-			<template v-if="isDesktop">
-				<div class="flex flex-wrap items-center gap-2 px-1">
-					<div class="join">
-						<button
-							v-for="vw in viewOptions"
-							:key="vw.name"
-							type="button"
-							class="btn btn-sm join-item gap-1 px-2"
-							:class="currentView === vw.name ? 'btn-primary' : 'btn-ghost'"
-							@click="setCalendarView(vw.name)"
-						>
-							<component :is="vw.icon" :size="15" aria-hidden="true" />
-							<span>{{ vw.label }}</span>
-						</button>
-					</div>
-					<div class="ml-auto flex items-center gap-2 text-xs text-base-content/60">
-						<span class="badge badge-ghost">{{ activeCalendarCount }} calendars</span>
-						<span class="badge badge-ghost">{{ visibleEventsCount }} events</span>
-						<span class="badge" :class="connected ? 'badge-success' : 'badge-error'">
-							{{ connected ? "Live" : "Offline" }}
-						</span>
-					</div>
-					<button class="btn btn-primary btn-sm gap-1 px-2" @click="openCreate()">
-						<Plus :size="16" aria-hidden="true" />
-						<span>New event</span>
-					</button>
-				</div>
-				<div class="calendar-frame">
-					<div class="calendar-scroll">
-						<ScheduleXCalendar
-							:calendar-app="calendarApp"
-							:custom-components="customComponents"
-						/>
-					</div>
-				</div>
-			</template>
+			<!-- Desktop: full Schedule-X grid + controls (lazily loaded) -->
+			<DesktopCalendar
+				v-if="isDesktop"
+				:events="visibleEvents"
+				:calendars="calendars"
+				:tags="tags"
+				:theme="resolvedTheme"
+				:connected="connected"
+				:active-calendar-count="activeCalendarCount"
+				@open="openView"
+				@create="(p) => openCreate(p ?? null)"
+			/>
 
 			<!-- Mobile: month/week grid -->
 			<template v-else>
