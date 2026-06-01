@@ -36,6 +36,9 @@ export function registerUploadRoutes(
 		const { bytes, mime } = images.read(file);
 		c.header("Content-Type", mime);
 		c.header("Cache-Control", "private, max-age=31536000, immutable");
+		// Copy into a plain Uint8Array<ArrayBuffer> to satisfy Hono's body type
+		// (a zero-copy view types as ArrayBufferLike and is rejected). The 5 MB
+		// cap makes the copy negligible.
 		return c.body(new Uint8Array(bytes));
 	});
 }

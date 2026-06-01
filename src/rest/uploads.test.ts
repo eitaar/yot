@@ -49,6 +49,10 @@ test("uploads an image and serves it back", async () => {
 	});
 	assert.equal(got.status, 200);
 	assert.equal(got.headers.get("content-type"), "image/png");
+	assert.deepEqual(
+		new Uint8Array(await got.arrayBuffer()),
+		new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+	);
 });
 
 test("rejects a non-image upload with 400", async () => {

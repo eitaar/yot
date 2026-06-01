@@ -80,6 +80,8 @@ export class ImageService {
 		const mime = (res.headers.get("content-type") ?? "").split(";")[0].trim();
 		if (!MIME_EXT[mime])
 			throw new ValidationError(`Unsupported image type: ${mime || "unknown"}`);
+		// Pre-reject obviously-too-large bodies. An absent/zero content-length
+		// (or a spoofed one) falls through to the post-read cap in saveBytes.
 		const declared = Number(res.headers.get("content-length") ?? 0);
 		if (declared > MAX_BYTES)
 			throw new ValidationError("Image exceeds the 5 MB limit");
