@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { CalendarDays, List, LogOut, MoreHorizontal, Plus } from "@lucide/vue";
+import { CalendarDays, List, LogOut, MoreHorizontal } from "@lucide/vue";
 import { useRoute, useRouter } from "vue-router";
 import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
-import { useComposer } from "@/composables/useComposer";
 
-// Mobile-only bottom navigation. Primary destinations + a prominent "New" and
-// an overflow menu for theme / install / logout. Hidden at lg and up.
+// Mobile-only bottom navigation: primary destinations + an overflow menu for
+// theme / install / logout. Hidden at lg and up.
 const route = useRoute();
 const router = useRouter();
 const { logout } = useAuth();
-const { requestCreate } = useComposer();
 
 function isActive(name: string): boolean {
 	return route.name === name;
@@ -37,15 +35,6 @@ async function onLogout() {
 			<List :size="20" aria-hidden="true" />
 			<span class="dock-label">List</span>
 		</RouterLink>
-
-		<button type="button" aria-label="New event" @click="requestCreate()">
-			<span
-				class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-content shadow"
-			>
-				<Plus :size="20" aria-hidden="true" />
-			</span>
-			<span class="dock-label">New</span>
-		</button>
 
 		<div class="dropdown dropdown-top dropdown-end">
 			<div

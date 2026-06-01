@@ -1,18 +1,18 @@
 @import "tailwindcss";
-/* DaisyUI's built-in default themes: `light` (default) + `dark` (prefersdark).
-   useTheme.ts sets data-theme="light"|"dark", which maps onto these directly. */
+/* Built-in DaisyUI palettes: `emerald` for light mode, `forest` for dark mode.
+   useTheme.ts sets data-theme="emerald"|"forest" based on the resolved mode. */
 @plugin "daisyui" {
 	themes:
-		light --preferslight,
-		dark --prefersdark;
+		emerald --default,
+		forest --prefersdark;
 }
 
 @theme {
 	--font-sans: "Rubik", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-/* Make Tailwind `dark:` utilities track the dark DaisyUI theme. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* Make Tailwind `dark:` utilities track the dark (forest) DaisyUI theme. */
+@custom-variant dark (&:where([data-theme="forest"], [data-theme="forest"] *));
 
 /* ---- Schedule-X reskin -------------------------------------------------------
    Map Schedule-X variables to DaisyUI tokens. These are live var() references,
