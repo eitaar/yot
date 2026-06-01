@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Check, MapPin, Pencil, Plus, X } from "@lucide/vue";
+import { Check, ImagePlus, Link, MapPin, Pencil, Plus, X } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
+import { api, imageSrc } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
 import { renderMarkdown } from "@/lib/markdown";
 
@@ -13,6 +14,8 @@ type CreateInput = {
 	all_day: boolean;
 	location?: string;
 	description?: string;
+	url?: string;
+	image_path?: string;
 };
 
 const props = defineProps<{
@@ -59,6 +62,8 @@ const form = reactive({
 	all_day: false,
 	start: "",
 	end: "",
+	url: "",
+	image_path: null as string | null,
 });
 const selectedTagIds = ref(new Set<string>());
 
@@ -66,6 +71,10 @@ const showNewTag = ref(false);
 const newTagName = ref("");
 const newTagColor = ref<string | null>("#10b981");
 const creatingTag = ref(false);
+
+const imgBusy = ref(false);
+const imgUrlInput = ref("");
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const calendar = computed(() =>
 	props.calendars.find((c) => c.id === props.event?.calendar_id),
@@ -111,6 +120,8 @@ function fillFromEvent(e: Event) {
 		? toDateInput(e.start_at)
 		: toDateTimeInput(e.start_at);
 	form.end = e.all_day ? toDateInput(e.end_at) : toDateTimeInput(e.end_at);
+	form.url = e.url ?? "";
+	form.image_path = e.image_path ?? null;
 	selectedTagIds.value = new Set(
 		e.tags
 			.map((name) => props.tags.find((t) => t.name === name)?.id)
@@ -126,6 +137,8 @@ function fillEmpty() {
 	form.all_day = props.prefill?.all_day ?? false;
 	form.start = props.prefill?.start ?? "";
 	form.end = props.prefill?.end ?? "";
+	form.url = "";
+	form.image_path = null;
 	selectedTagIds.value = new Set();
 }
 
@@ -170,6 +183,43 @@ async function submitNewTag() {
 	}
 }
 
+async function onPickFile(e: globalThis.Event) {
+	const input = e.target as HTMLInputElement;
+	const file = input.files?.[0];
+	if (!file) return;
+	imgBusy.value = true;
+	error.value = "";
+	try {
+		const { path } = await api.uploadImage(file);
+		form.image_path = path;
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err);
+	} finally {
+		imgBusy.value = false;
+		if (fileInput.value) fileInput.value.value = "";
+	}
+}
+
+async function onAddImageUrl() {
+	const url = imgUrlInput.value.trim();
+	if (!url) return;
+	imgBusy.value = true;
+	error.value = "";
+	try {
+		const { path } = await api.uploadImageFromUrl(url);
+		form.image_path = path;
+		imgUrlInput.value = "";
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err);
+	} finally {
+		imgBusy.value = false;
+	}
+}
+
+function removeImage() {
+	form.image_path = null;
+}
+
 function submit() {
 	error.value = "";
 	if (!form.calendar_id || !form.title || !form.start || !form.end) {
@@ -193,6 +243,8 @@ function submit() {
 				all_day: form.all_day,
 				...(desc ? { description: desc } : {}),
 				...(loc ? { location: loc } : {}),
+				...(form.url.trim() ? { url: form.url.trim() } : {}),
+				...(form.image_path ? { image_path: form.image_path } : {}),
 			},
 			tagIds,
 		);
@@ -208,6 +260,8 @@ function submit() {
 				all_day: form.all_day,
 				start_at,
 				end_at,
+				url: form.url.trim() || null,
+				image_path: form.image_path || null,
 			},
 			tagIds,
 		);
@@ -268,6 +322,9 @@ onUnmounted(() => {
 
 			<!-- View mode -->
 			<div v-if="localMode === 'view' && event" class="space-y-3">
+				<div v-if="event.image_path" class="overflow-hidden rounded-box">
+					<img :src="imageSrc(event.image_path)" alt="" class="aspect-3/2 w-full object-cover" />
+				</div>
 				<div class="flex items-center gap-2 text-sm text-base-content/70">
 					<span
 						class="inline-block h-3 w-3 rounded-full"
@@ -282,6 +339,12 @@ onUnmounted(() => {
 				<p v-if="event.location" class="flex items-center gap-1 text-sm">
 					<MapPin :size="14" aria-hidden="true" />
 					{{ event.location }}
+				</p>
+				<p v-if="event.url" class="flex items-center gap-1 text-sm">
+					<Link :size="14" aria-hidden="true" />
+					<a :href="event.url" target="_blank" rel="noopener noreferrer" class="link truncate">
+						{{ event.url }}
+					</a>
 				</p>
 				<!-- eslint-disable-next-line vue/no-v-html — sanitized by markdown-it (html:false) -->
 				<div
@@ -354,8 +417,61 @@ onUnmounted(() => {
 					<input v-model="form.location" class="input w-full" />
 				</fieldset>
 				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Link</legend>
+					<input v-model="form.url" type="url" placeholder="https://…" class="input w-full" />
+				</fieldset>
+				<fieldset class="fieldset">
 					<legend class="fieldset-legend">Description</legend>
 					<textarea v-model="form.description" rows="3" class="textarea w-full" />
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Cover image</legend>
+					<div v-if="form.image_path" class="relative overflow-hidden rounded-box">
+						<img :src="imageSrc(form.image_path)" alt="" class="aspect-3/2 w-full object-cover" />
+						<button
+							type="button"
+							class="btn btn-circle btn-xs absolute right-2 top-2"
+							aria-label="Remove image"
+							@click="removeImage"
+						>
+							<X :size="14" aria-hidden="true" />
+						</button>
+					</div>
+					<div v-else class="space-y-2">
+						<button
+							type="button"
+							class="btn btn-sm w-full gap-1"
+							:disabled="imgBusy"
+							@click="fileInput?.click()"
+						>
+							<ImagePlus :size="15" aria-hidden="true" />
+							{{ imgBusy ? "Uploading…" : "Upload image" }}
+						</button>
+						<input
+							ref="fileInput"
+							type="file"
+							accept="image/png,image/jpeg,image/webp,image/gif"
+							class="hidden"
+							@change="onPickFile"
+						/>
+						<div class="join w-full">
+							<input
+								v-model="imgUrlInput"
+								placeholder="…or paste an image URL"
+								class="input input-sm join-item w-full"
+								@keyup.enter.prevent="onAddImageUrl"
+							/>
+							<button
+								type="button"
+								class="btn btn-sm join-item"
+								:disabled="imgBusy"
+								aria-label="Use image URL"
+								@click="onAddImageUrl"
+							>
+								<Check :size="15" aria-hidden="true" />
+							</button>
+						</div>
+					</div>
 				</fieldset>
 
 				<fieldset class="fieldset">
