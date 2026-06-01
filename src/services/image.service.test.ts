@@ -60,3 +60,10 @@ test("saveFromUrl rejects non-http and private hosts without network", async () 
 	await assert.rejects(() => images.saveFromUrl("ftp://example.com/x.png"), ValidationError);
 	await assert.rejects(() => images.saveFromUrl("http://127.0.0.1/x.png"), ValidationError);
 });
+
+test("isPrivateHost blocks IPv4-mapped IPv6 (hex and dotted forms)", async () => {
+	assert.equal(await isPrivateHost("[::ffff:7f00:1]"), true); // 127.0.0.1, hex
+	assert.equal(await isPrivateHost("[::ffff:c0a8:101]"), true); // 192.168.1.1, hex
+	assert.equal(await isPrivateHost("[::ffff:127.0.0.1]"), true); // dotted
+	assert.equal(await isPrivateHost("[::ffff:8.8.8.8]"), false); // public mapped
+});

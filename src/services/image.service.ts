@@ -66,16 +66,23 @@ export class ImageService {
 		}
 		if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
 			throw new ValidationError("Image URL must be http(s)");
+		// Note: DNS resolution here and inside fetch() are independent (TOCTOU /
+		// DNS-rebinding). For a single-user self-hosted app the window is negligible.
 		if (await isPrivateHost(parsed.hostname))
 			throw new ValidationError("Refusing to fetch a private/loopback address");
+		// redirect: "error" — a public URL must not be able to 302 into a private
+		// address, which would bypass the isPrivateHost check above.
 		const res = await fetch(parsed, {
-			redirect: "follow",
+			redirect: "error",
 			signal: AbortSignal.timeout(10_000),
 		});
 		if (!res.ok) throw new ValidationError(`Image fetch failed: ${res.status}`);
 		const mime = (res.headers.get("content-type") ?? "").split(";")[0].trim();
 		if (!MIME_EXT[mime])
 			throw new ValidationError(`Unsupported image type: ${mime || "unknown"}`);
+		const declared = Number(res.headers.get("content-length") ?? 0);
+		if (declared > MAX_BYTES)
+			throw new ValidationError("Image exceeds the 5 MB limit");
 		const bytes = new Uint8Array(await res.arrayBuffer());
 		return this.saveBytes(bytes, mime);
 	}
@@ -113,7 +120,12 @@ async function safeLookup(host: string): Promise<string[]> {
 function isPrivateIp(ip: string): boolean {
 	if (ip.includes(":")) {
 		const v = ip.toLowerCase();
-		if (v.startsWith("::ffff:")) return isPrivateIp(v.slice(7));
+		if (v.startsWith("::ffff:")) {
+			const mapped = v.slice(7);
+			// A dotted-decimal mapped address is safe to re-check; a hex-form one
+			// (still contains ':') is treated as private to avoid a bypass.
+			return mapped.includes(":") ? true : isPrivateIp(mapped);
+		}
 		return (
 			v === "::1" ||
 			v.startsWith("fc") ||
