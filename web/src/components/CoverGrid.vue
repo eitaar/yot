@@ -35,8 +35,11 @@ function cardStyle(e: Event): Record<string, string> {
 			backgroundPosition: "center",
 		};
 	}
+	// color-mix keeps this format-agnostic (no hex-only assumption like `${c}88`).
 	const c = calColor(e.calendar_id);
-	return { background: `linear-gradient(135deg, ${c}, ${c}88)` };
+	return {
+		background: `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 55%, transparent))`,
+	};
 }
 
 function when(e: Event): string {
