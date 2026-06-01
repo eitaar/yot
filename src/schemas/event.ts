@@ -20,6 +20,9 @@ export const EventSchema = z
 		start_at: isoDateTime(),
 		end_at: isoDateTime("2026-05-29T11:00:00.000Z"),
 		all_day: z.boolean(),
+		image_path: z.string().nullable(),
+		url: z.string().nullable(),
+		source_uid: z.string().nullable(),
 		created_at: isoDateTime(),
 		updated_at: isoDateTime(),
 		tags: z
@@ -38,6 +41,8 @@ export const CreateEventSchema = z
 		start_at: isoDateTime(),
 		end_at: isoDateTime("2026-05-29T11:00:00.000Z"),
 		all_day: z.boolean().optional().default(false),
+		url: z.string().optional(),
+		image_path: z.string().optional(),
 	})
 	.openapi("CreateEvent");
 
@@ -50,6 +55,8 @@ export const UpdateEventSchema = z
 		start_at: isoDateTime().optional(),
 		end_at: isoDateTime().optional(),
 		all_day: z.boolean().optional(),
+		url: z.string().nullable().optional(),
+		image_path: z.string().nullable().optional(),
 	})
 	.openapi("UpdateEvent");
 
