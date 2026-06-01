@@ -1,7 +1,8 @@
 import MarkdownIt from "markdown-it";
 
-// html:false escapes raw HTML and markdown-it blocks dangerous link protocols
-// (javascript:, file:, etc.) out of the box, so the output is safe for v-html.
+// html:false escapes raw HTML; markdown-it's validateLink() blocks javascript:/data:
+// in links and images, so only http(s) URLs pass. Markdown image syntax still renders
+// real <img> tags from https sources (a privacy note, not an XSS risk). Safe for v-html.
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
 
 // Open links in a new tab.

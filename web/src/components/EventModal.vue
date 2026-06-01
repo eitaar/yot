@@ -183,9 +183,8 @@ async function submitNewTag() {
 	}
 }
 
-async function onPickFile(e: globalThis.Event) {
-	const input = e.target as HTMLInputElement;
-	const file = input.files?.[0];
+async function onPickFile() {
+	const file = fileInput.value?.files?.[0];
 	if (!file) return;
 	imgBusy.value = true;
 	error.value = "";
@@ -230,6 +229,7 @@ function submit() {
 	const end_at = new Date(form.end).toISOString();
 	const desc = form.description.trim();
 	const loc = form.location.trim();
+	const url = form.url.trim();
 	const tagIds = [...selectedTagIds.value];
 	busy.value = true;
 	if (localMode.value === "create") {
@@ -243,7 +243,7 @@ function submit() {
 				all_day: form.all_day,
 				...(desc ? { description: desc } : {}),
 				...(loc ? { location: loc } : {}),
-				...(form.url.trim() ? { url: form.url.trim() } : {}),
+				...(url ? { url } : {}),
 				...(form.image_path ? { image_path: form.image_path } : {}),
 			},
 			tagIds,
@@ -260,7 +260,7 @@ function submit() {
 				all_day: form.all_day,
 				start_at,
 				end_at,
-				url: form.url.trim() || null,
+				url: url || null,
 				image_path: form.image_path || null,
 			},
 			tagIds,
@@ -342,7 +342,7 @@ onUnmounted(() => {
 				</p>
 				<p v-if="event.url" class="flex items-center gap-1 text-sm">
 					<Link :size="14" aria-hidden="true" />
-					<a :href="event.url" target="_blank" rel="noopener noreferrer" class="link truncate">
+					<a :href="event.url" target="_blank" rel="noopener noreferrer" class="link truncate min-w-0">
 						{{ event.url }}
 					</a>
 				</p>
