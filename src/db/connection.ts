@@ -13,35 +13,13 @@ export function openDb(path: string): DB {
 	const db = new Database(path);
 	db.pragma("journal_mode = WAL");
 	db.pragma("foreign_keys = ON");
-	// Run column migrations before applying the full schema so that any new
-	// indexes referencing the added columns don't fail on older databases.
+	// Migrate BEFORE applying the schema: adding any missing columns first means
+	// new indexes in SCHEMA_SQL (e.g. on source_uid) never reference an absent
+	// column on an older database. On a fresh DB the events table doesn't exist
+	// yet, so migrate is a no-op and SCHEMA_SQL creates everything.
 	migrate(db);
-	execSchema(db);
+	db.exec(SCHEMA_SQL);
 	return db;
-}
-
-/**
- * Apply SCHEMA_SQL statement by statement. `CREATE INDEX` statements are
- * executed best-effort: if an index references a column absent from a
- * pre-existing (legacy) table, we skip it — the index either already exists
- * or will be created after the next clean migration cycle. All `CREATE TABLE`
- * statements use `IF NOT EXISTS` and are always safe to run.
- */
-function execSchema(db: DB): void {
-	const statements = SCHEMA_SQL.split(";")
-		.map((s) => s.trim())
-		.filter((s) => s.length > 0);
-	for (const stmt of statements) {
-		const isIndex = /^\s*CREATE\s+INDEX/i.test(stmt);
-		try {
-			db.exec(`${stmt};`);
-		} catch (err) {
-			// Swallow index-creation failures on legacy tables — those tables
-			// already have the index (IF NOT EXISTS) or are missing the column
-			// because they pre-date this schema version.
-			if (!isIndex) throw err;
-		}
-	}
 }
 
 /**
