@@ -18,6 +18,7 @@ import { registerEventRoutes } from "./events.js";
 import { registerInternalRoutes } from "./internal.js";
 import { registerStreamRoute } from "./stream.js";
 import { registerTagRoutes } from "./tags.js";
+import { registerUploadRoutes } from "./uploads.js";
 
 const errorHandler: ErrorHandler = (err, c) => {
 	if (err instanceof AppError) {
@@ -106,6 +107,7 @@ export function buildApp({
 	// --- protected ---
 	registerCalendarRoutes(api, services);
 	registerEventRoutes(api, services);
+	registerUploadRoutes(api, services);
 	registerTagRoutes(api, services);
 	registerStreamRoute(api, bus);
 	registerInternalRoutes(api, bus);
