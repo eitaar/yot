@@ -16,6 +16,9 @@ export type Event = {
 	start_at: string;
 	end_at: string;
 	all_day: boolean;
+	image_path: string | null;
+	url: string | null;
+	source_uid: string | null;
 	created_at: string;
 	updated_at: string;
 	tags: string[];
@@ -33,6 +36,16 @@ export type Tag = {
 	color: string | null;
 };
 
+export type ImportSummary = {
+	created: number;
+	skippedRecurring: number;
+	skippedDuplicate: number;
+	errors: string[];
+};
+
+/** Build a same-origin URL for a stored cover image. */
+export const imageSrc = (name: string): string => `/api/img/${name}`;
+
 // Mirrors the backend UpdateEvent schema (all fields optional).
 export type EventUpdate = Partial<{
 	calendar_id: string;
@@ -42,6 +55,8 @@ export type EventUpdate = Partial<{
 	start_at: string;
 	end_at: string;
 	all_day: boolean;
+	image_path: string | null;
+	url: string | null;
 	tags: string[];
 }>;
 
@@ -85,6 +100,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	return body as T;
 }
 
+async function upload<T>(path: string, form: FormData): Promise<T> {
+	const res = await fetch(`/api${path}`, {
+		method: "POST",
+		credentials: "include",
+		body: form,
+	});
+	const text = await res.text();
+	const body = text ? JSON.parse(text) : null;
+	if (!res.ok) {
+		if (res.status === 401) unauthorizedHandler?.();
+		throw new ApiError(res.status, body?.error?.message ?? res.statusText);
+	}
+	return body as T;
+}
+
 export const api = {
 	session: () => request<{ scope: "read" | "write" }>("/auth/session"),
 	pair: (pin: string) =>
@@ -118,6 +148,8 @@ export const api = {
 		all_day?: boolean;
 		location?: string;
 		description?: string;
+		url?: string;
+		image_path?: string;
 	}) =>
 		request<Event>("/events", { method: "POST", body: JSON.stringify(input) }),
 	getEvent: (id: string) => request<Event>(`/events/${id}`),
@@ -128,6 +160,22 @@ export const api = {
 		}),
 	deleteEvent: (id: string) =>
 		request<void>(`/events/${id}`, { method: "DELETE" }),
+	uploadImage: (file: File) => {
+		const form = new FormData();
+		form.append("file", file);
+		return upload<{ path: string }>("/uploads/image", form);
+	},
+	uploadImageFromUrl: (url: string) =>
+		request<{ path: string }>("/uploads/image-from-url", {
+			method: "POST",
+			body: JSON.stringify({ url }),
+		}),
+	importIcs: (file: File, calendarId: string) => {
+		const form = new FormData();
+		form.append("file", file);
+		form.append("calendar_id", calendarId);
+		return upload<ImportSummary>("/events/import", form);
+	},
 	addEventTag: (eventId: string, tagId: string) =>
 		request<Event>(`/events/${eventId}/tags/${tagId}`, { method: "POST" }),
 	removeEventTag: (eventId: string, tagId: string) =>

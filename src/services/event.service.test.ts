@@ -13,19 +13,21 @@ let calendars: CalendarService;
 let tags: TagService;
 let emitted: ChangeEvent[];
 let calId: string;
+let dbRef: ReturnType<typeof openDb>;
+let busRef: EventBus;
 
 function query(partial: Record<string, unknown> = {}) {
 	return EventQuerySchema.parse(partial);
 }
 
 beforeEach(() => {
-	const db = openDb(":memory:");
-	const bus = new EventBus();
+	dbRef = openDb(":memory:");
+	busRef = new EventBus();
 	emitted = [];
-	bus.subscribe((e) => emitted.push(e));
-	calendars = new CalendarService(db, bus);
-	tags = new TagService(db, bus);
-	events = new EventService(db, bus);
+	busRef.subscribe((e) => emitted.push(e));
+	calendars = new CalendarService(dbRef, busRef);
+	tags = new TagService(dbRef, busRef);
+	events = new EventService(dbRef, busRef);
 	calId = calendars.create({ name: "Work" }).id;
 	emitted.length = 0; // ignore the calendar.created emission
 });
@@ -267,4 +269,104 @@ test("list hydrates each event's own tags and reminders, in start order", () => 
 	);
 	assert.deepEqual(list[1].reminders, []);
 	assert.deepEqual(list[2].reminders, []);
+});
+
+test("create and get round-trip url and image_path; defaults are null", () => {
+	const ev = events.create({
+		calendar_id: calId,
+		title: "Rich",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+		url: "https://example.com",
+		image_path: "11111111-1111-4111-8111-111111111111.png",
+	});
+	assert.equal(ev.url, "https://example.com");
+	assert.equal(ev.image_path, "11111111-1111-4111-8111-111111111111.png");
+	assert.equal(ev.source_uid, null);
+
+	const plain = events.create({
+		calendar_id: calId,
+		title: "Plain",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+	});
+	assert.equal(plain.url, null);
+	assert.equal(plain.image_path, null);
+});
+
+test("update clears url with null and changes image_path", () => {
+	const ev = events.create({
+		calendar_id: calId,
+		title: "X",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+		url: "https://old.test",
+	});
+	const updated = events.update(ev.id, { url: null, image_path: "a.png" });
+	assert.equal(updated.url, null);
+	assert.equal(updated.image_path, "a.png");
+});
+
+test("existsBySourceUid reflects stored source_uid", () => {
+	assert.equal(events.existsBySourceUid("uid-1"), false);
+	events.create({
+		calendar_id: calId,
+		title: "Imported",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+		source_uid: "uid-1",
+	});
+	assert.equal(events.existsBySourceUid("uid-1"), true);
+});
+
+test("delete of an event with no image remover does not throw", () => {
+	const ev = events.create({
+		calendar_id: calId,
+		title: "WithImage",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+		image_path: "pic.png",
+	});
+	events.delete(ev.id);
+	assert.throws(() => events.get(ev.id), NotFoundError);
+});
+
+test("delete calls the injected image remover with the stored image_path", () => {
+	const removed: string[] = [];
+	const ev = events.create({
+		calendar_id: calId,
+		title: "WithImage2",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+		image_path: "gone.png",
+	});
+	const spyBus = new EventBus();
+	const spyEvents = new EventService(dbRef, spyBus, {
+		remove: (n) => removed.push(n),
+	});
+	spyEvents.delete(ev.id);
+	assert.deepEqual(removed, ["gone.png"]);
+});
+
+test("delete does not call the remover when the event has no image", () => {
+	const removed: string[] = [];
+	const ev = events.create({
+		calendar_id: calId,
+		title: "NoImage",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+	});
+	const spyBus = new EventBus();
+	const spyEvents = new EventService(dbRef, spyBus, {
+		remove: (n) => removed.push(n),
+	});
+	spyEvents.delete(ev.id);
+	assert.deepEqual(removed, []);
 });

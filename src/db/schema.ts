@@ -27,11 +27,15 @@ CREATE TABLE IF NOT EXISTS events (
   start_at    TEXT NOT NULL,
   end_at      TEXT NOT NULL,
   all_day     INTEGER NOT NULL DEFAULT 0,
+  image_path  TEXT,
+  url         TEXT,
+  source_uid  TEXT,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_calendar ON events(calendar_id);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at);
+CREATE INDEX IF NOT EXISTS idx_events_source_uid ON events(source_uid);
 
 CREATE TABLE IF NOT EXISTS reminders (
   id             TEXT PRIMARY KEY,

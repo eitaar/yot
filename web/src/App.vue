@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { CalendarDays, List, LogOut, Menu } from "@lucide/vue";
+import { CalendarDays, Images, List, LogOut, Menu, Upload } from "@lucide/vue";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BottomDock from "@/components/BottomDock.vue";
+import ImportIcsDialog from "@/components/ImportIcsDialog.vue";
 import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useImport } from "@/composables/useImport";
 import { useIsDesktop } from "@/composables/useMediaQuery";
 import { useSidebar } from "@/composables/useSidebar";
 
@@ -14,6 +16,7 @@ const router = useRouter();
 const { logout } = useAuth();
 const sidebar = useSidebar();
 const isDesktop = useIsDesktop();
+const imp = useImport();
 
 // On mobile the sidebar is an overlay → close it on navigation. On desktop it's
 // a docked panel, so leave it as the user set it.
@@ -59,8 +62,16 @@ async function onLogout() {
 						<List :size="16" aria-hidden="true" />
 						<span>List</span>
 					</RouterLink>
+					<RouterLink to="/cover" :class="linkBase" :exact-active-class="linkActive">
+						<Images :size="16" aria-hidden="true" />
+						<span>Cover</span>
+					</RouterLink>
 				</nav>
 				<div class="ml-auto hidden items-center gap-1 lg:flex">
+					<button class="btn btn-ghost btn-sm gap-1 px-2" @click="imp.open()">
+						<Upload :size="16" aria-hidden="true" />
+						<span>Import</span>
+					</button>
 					<PWAInstallButton />
 					<ThemeToggle />
 					<button class="btn btn-ghost btn-sm gap-1 px-2" @click="onLogout">
@@ -77,5 +88,6 @@ async function onLogout() {
 			<BottomDock />
 		</template>
 		<RouterView v-else />
+		<ImportIcsDialog v-if="imp.isOpen.value && route.name !== 'pair'" @close="imp.close()" />
 	</div>
 </template>

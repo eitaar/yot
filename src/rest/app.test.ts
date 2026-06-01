@@ -151,3 +151,38 @@ test("serves an OpenAPI document", async () => {
 	const doc = await res.json();
 	assert.equal(doc.openapi.startsWith("3."), true);
 });
+
+test("events REST round-trips url and image_path", async () => {
+	const cal = await (
+		await app.request("/api/calendars", json({ name: "Work" }))
+	).json();
+
+	const created = await (
+		await app.request(
+			"/api/events",
+			json({
+				calendar_id: cal.id,
+				title: "Linked",
+				start_at: "2026-05-29T10:00:00Z",
+				end_at: "2026-05-29T11:00:00Z",
+				url: "https://example.com",
+				image_path: "11111111-1111-4111-8111-111111111111.png",
+			}),
+		)
+	).json();
+	assert.equal(created.url, "https://example.com");
+	assert.equal(created.image_path, "11111111-1111-4111-8111-111111111111.png");
+	assert.equal(created.source_uid, null);
+
+	const patched = await (
+		await app.request(`/api/events/${created.id}`, {
+			method: "PATCH",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${writeKey}`,
+			},
+			body: JSON.stringify({ url: null }),
+		})
+	).json();
+	assert.equal(patched.url, null);
+});

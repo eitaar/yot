@@ -21,17 +21,27 @@ type EventRow = {
 	start_at: string;
 	end_at: string;
 	all_day: number;
+	image_path: string | null;
+	url: string | null;
+	source_uid: string | null;
 	created_at: string;
 	updated_at: string;
+};
+
+/** Service-level create input: the public CreateEventInput plus an optional
+ * source_uid that only the .ics import path supplies. */
+export type CreateEventServiceInput = CreateEventInput & {
+	source_uid?: string | null;
 };
 
 export class EventService {
 	constructor(
 		private readonly db: DB,
 		private readonly bus: EventBus,
+		private readonly images?: { remove(name: string): void },
 	) {}
 
-	create(input: CreateEventInput): Event {
+	create(input: CreateEventServiceInput): Event {
 		this.assertCalendarExists(input.calendar_id);
 		this.assertOrder(input.start_at, input.end_at);
 		const ts = now();
@@ -44,15 +54,18 @@ export class EventService {
 			start_at: input.start_at,
 			end_at: input.end_at,
 			all_day: input.all_day ? 1 : 0,
+			image_path: input.image_path ?? null,
+			url: input.url ?? null,
+			source_uid: input.source_uid ?? null,
 			created_at: ts,
 			updated_at: ts,
 		};
 		this.db
 			.prepare(
 				`INSERT INTO events
-				 (id, calendar_id, title, description, location, start_at, end_at, all_day, created_at, updated_at)
+				 (id, calendar_id, title, description, location, start_at, end_at, all_day, image_path, url, source_uid, created_at, updated_at)
 				 VALUES
-				 (@id, @calendar_id, @title, @description, @location, @start_at, @end_at, @all_day, @created_at, @updated_at)`,
+				 (@id, @calendar_id, @title, @description, @location, @start_at, @end_at, @all_day, @image_path, @url, @source_uid, @created_at, @updated_at)`,
 			)
 			.run(row);
 		const ev = this.hydrate(row);
@@ -118,6 +131,9 @@ export class EventService {
 			end_at: input.end_at ?? current.end_at,
 			all_day:
 				input.all_day === undefined ? current.all_day : input.all_day ? 1 : 0,
+			image_path:
+				input.image_path === undefined ? current.image_path : input.image_path,
+			url: input.url === undefined ? current.url : input.url,
 			updated_at: now(),
 		};
 		if (input.calendar_id) this.assertCalendarExists(input.calendar_id);
@@ -126,18 +142,24 @@ export class EventService {
 			.prepare(
 				`UPDATE events SET
 				 calendar_id = @calendar_id, title = @title, description = @description, location = @location,
-				 start_at = @start_at, end_at = @end_at, all_day = @all_day, updated_at = @updated_at
+				 start_at = @start_at, end_at = @end_at, all_day = @all_day,
+				 image_path = @image_path, url = @url, updated_at = @updated_at
 				 WHERE id = @id`,
 			)
 			.run(next);
+		// Remove the old file when the image is replaced or cleared to null.
+		if (current.image_path && current.image_path !== next.image_path) {
+			this.images?.remove(current.image_path);
+		}
 		const ev = this.hydrate(next);
 		this.bus.emit({ type: "event.updated", data: ev });
 		return ev;
 	}
 
 	delete(id: string): void {
-		const result = this.db.prepare(`DELETE FROM events WHERE id = ?`).run(id);
-		if (result.changes === 0) throw new NotFoundError(`Event ${id} not found`);
+		const row = this.getRow(id); // throws NotFoundError if absent
+		this.db.prepare(`DELETE FROM events WHERE id = ?`).run(id);
+		if (row.image_path) this.images?.remove(row.image_path);
 		this.bus.emit({ type: "event.deleted", data: { id } });
 	}
 
@@ -186,6 +208,12 @@ export class EventService {
 			.prepare(`DELETE FROM event_tags WHERE event_id = ? AND tag_id = ?`)
 			.run(eventId, tagId);
 		return this.touchAndEmit(eventId);
+	}
+
+	existsBySourceUid(uid: string): boolean {
+		return !!this.db
+			.prepare(`SELECT 1 FROM events WHERE source_uid = ?`)
+			.get(uid);
 	}
 
 	private getRow(id: string): EventRow {
@@ -257,6 +285,9 @@ export class EventService {
 			start_at: row.start_at,
 			end_at: row.end_at,
 			all_day: row.all_day === 1,
+			image_path: row.image_path,
+			url: row.url,
+			source_uid: row.source_uid,
 			created_at: row.created_at,
 			updated_at: row.updated_at,
 			tags: tagsByEvent.get(row.id) ?? [],

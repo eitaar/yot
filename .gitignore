@@ -41,5 +41,8 @@ data.db
 data.db-wal
 data.db-shm
 
+# uploaded cover images (stored locally, path saved in SQL)
+data/img/
+
 # brainstorming visual-companion scratch dir
 .superpowers/
