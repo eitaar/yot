@@ -1,4 +1,5 @@
 import ICAL from "ical.js";
+import { isHttpUrl } from "../schemas/common.js";
 import type { EventService } from "./event.service.js";
 
 export type ImportSummary = {
@@ -63,7 +64,7 @@ export class IcsImportService {
 					title: event.summary || "(untitled)",
 					description: event.description || undefined,
 					location: typeof location === "string" ? location : undefined,
-					url: typeof url === "string" ? url : undefined,
+					url: typeof url === "string" && isHttpUrl(url) ? url : undefined,
 					start_at: start.toJSDate().toISOString(),
 					end_at: end.toJSDate().toISOString(),
 					all_day: start.isDate,

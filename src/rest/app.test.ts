@@ -186,3 +186,20 @@ test("events REST round-trips url and image_path", async () => {
 	).json();
 	assert.equal(patched.url, null);
 });
+
+test("rejects a javascript: url with 400 (XSS guard)", async () => {
+	const cal = await (
+		await app.request("/api/calendars", json({ name: "X" }))
+	).json();
+	const res = await app.request(
+		"/api/events",
+		json({
+			calendar_id: cal.id,
+			title: "evil",
+			start_at: "2026-05-29T10:00:00Z",
+			end_at: "2026-05-29T11:00:00Z",
+			url: "javascript:alert(1)",
+		}),
+	);
+	assert.equal(res.status, 400);
+});
