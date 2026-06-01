@@ -1,3 +1,8 @@
+> [!WARNING]
+> This project is still under development.
+
+
+
 # yot — Calendar backend
 
 A single-user calendar backend where **both a REST API and an MCP server** perform
@@ -10,7 +15,7 @@ full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 - **MCP** — the same operations exposed as tools over a **stdio** server
 - **Realtime** — one global SSE change feed at `/api/stream`
 - **Auth** — opaque API keys with `read` / `write` scopes; browser sessions via PIN pairing
-
+ijji
 ## Setup
 
 ```bash
