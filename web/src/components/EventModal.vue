@@ -3,6 +3,7 @@ import { Check, MapPin, Pencil, Plus, X } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
+import { renderMarkdown } from "@/lib/markdown";
 
 type CreateInput = {
 	calendar_id: string;
@@ -74,10 +75,8 @@ function tagColor(name: string): string {
 	return props.tags.find((t) => t.name === name)?.color ?? "#64748b";
 }
 
-// Imported descriptions sometimes carry literal backslash-n instead of real
-// newlines; un-escape them so `whitespace-pre-wrap` renders proper line breaks.
-const descriptionText = computed(() =>
-	(props.event?.description ?? "").replace(/\\n/g, "\n"),
+const renderedDescription = computed(() =>
+	renderMarkdown(props.event?.description),
 );
 
 const dateRange = computed(() => {
@@ -284,9 +283,12 @@ onUnmounted(() => {
 					<MapPin :size="14" aria-hidden="true" />
 					{{ event.location }}
 				</p>
-				<p v-if="event.description" class="whitespace-pre-wrap text-sm">
-					{{ descriptionText }}
-				</p>
+				<!-- eslint-disable-next-line vue/no-v-html — sanitized by markdown-it (html:false) -->
+				<div
+					v-if="event.description"
+					class="md text-sm leading-relaxed"
+					v-html="renderedDescription"
+				/>
 				<div v-if="event.tags.length" class="flex flex-wrap gap-1">
 					<span
 						v-for="t in event.tags"
@@ -425,3 +427,13 @@ onUnmounted(() => {
 		</div>
 	</div>
 </template>
+
+<style scoped>
+.md :deep(p) { margin: 0 0 0.5rem; }
+.md :deep(ul) { list-style: disc; padding-left: 1.25rem; margin: 0 0 0.5rem; }
+.md :deep(ol) { list-style: decimal; padding-left: 1.25rem; margin: 0 0 0.5rem; }
+.md :deep(a) { text-decoration: underline; }
+.md :deep(code) { font-family: ui-monospace, monospace; font-size: 0.85em; }
+.md :deep(h1), .md :deep(h2), .md :deep(h3) { font-weight: 600; margin: 0.25rem 0; }
+.md :deep(:last-child) { margin-bottom: 0; }
+</style>
