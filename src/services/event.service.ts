@@ -147,6 +147,7 @@ export class EventService {
 				 WHERE id = @id`,
 			)
 			.run(next);
+		// Remove the old file when the image is replaced or cleared to null.
 		if (current.image_path && current.image_path !== next.image_path) {
 			this.images?.remove(current.image_path);
 		}
@@ -158,8 +159,8 @@ export class EventService {
 	delete(id: string): void {
 		const row = this.getRow(id); // throws NotFoundError if absent
 		this.db.prepare(`DELETE FROM events WHERE id = ?`).run(id);
-		this.bus.emit({ type: "event.deleted", data: { id } });
 		if (row.image_path) this.images?.remove(row.image_path);
+		this.bus.emit({ type: "event.deleted", data: { id } });
 	}
 
 	addReminder(eventId: string, input: CreateReminderInput): Reminder {

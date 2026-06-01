@@ -346,8 +346,23 @@ test("delete calls the injected image remover with the stored image_path", () =>
 		all_day: false,
 		image_path: "gone.png",
 	});
-	// Re-bind events to a service that shares the same db but has a spy remover.
-	const spyEvents = new EventService(dbRef, busRef, { remove: (n) => removed.push(n) });
+	const spyBus = new EventBus();
+	const spyEvents = new EventService(dbRef, spyBus, { remove: (n) => removed.push(n) });
 	spyEvents.delete(ev.id);
 	assert.deepEqual(removed, ["gone.png"]);
+});
+
+test("delete does not call the remover when the event has no image", () => {
+	const removed: string[] = [];
+	const ev = events.create({
+		calendar_id: calId,
+		title: "NoImage",
+		start_at: "2026-05-29T10:00:00Z",
+		end_at: "2026-05-29T11:00:00Z",
+		all_day: false,
+	});
+	const spyBus = new EventBus();
+	const spyEvents = new EventService(dbRef, spyBus, { remove: (n) => removed.push(n) });
+	spyEvents.delete(ev.id);
+	assert.deepEqual(removed, []);
 });
