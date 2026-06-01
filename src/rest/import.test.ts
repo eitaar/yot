@@ -61,3 +61,15 @@ test("POST /events/import creates events and returns a summary", async () => {
 	assert.equal(list.length, 1);
 	assert.equal(list[0].title, "Imported one");
 });
+
+test("import to an unknown calendar returns 404", async () => {
+	const form = new FormData();
+	form.append("file", new File([ICS], "cal.ics", { type: "text/calendar" }));
+	form.append("calendar_id", "does-not-exist");
+	const res = await app.request("/api/events/import", {
+		method: "POST",
+		headers: { authorization: `Bearer ${writeKey}` },
+		body: form,
+	});
+	assert.equal(res.status, 404);
+});

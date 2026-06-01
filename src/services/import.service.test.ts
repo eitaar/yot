@@ -72,3 +72,10 @@ test("re-importing the same file dedupes by UID", () => {
 	assert.equal(s2.skippedDuplicate, 2);
 	assert.equal(s2.skippedRecurring, 1);
 });
+
+test("returns a parse error for invalid ics text", () => {
+	const s = importer.importIcs("not valid ical", calId);
+	assert.equal(s.created, 0);
+	assert.equal(s.errors.length, 1);
+	assert.match(s.errors[0], /Could not parse/);
+});

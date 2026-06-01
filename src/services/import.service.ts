@@ -45,9 +45,19 @@ export class IcsImportService {
 					continue;
 				}
 				const start = event.startDate;
+				if (!start) {
+					summary.errors.push(
+						`[${event.uid || "no-uid"}] VEVENT has no DTSTART; skipped`,
+					);
+					continue;
+				}
 				const end = event.endDate ?? start;
 				const url = vevent.getFirstPropertyValue("url");
 				const location = vevent.getFirstPropertyValue("location");
+				// ical.js 2.x ships no timezone data: a DTSTART;TZID=... without an
+				// inline VTIMEZONE is treated as floating and converted using the
+				// server's local offset. Well-behaved exporters (Google/Apple) embed
+				// VTIMEZONE, so this is correct for typical files.
 				this.events.create({
 					calendar_id: calendarId,
 					title: event.summary || "(untitled)",
