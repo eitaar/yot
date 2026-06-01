@@ -21,6 +21,9 @@ test("SSE stream sends a ready frame then broadcasts mutations", async () => {
 	});
 	assert.equal(res.status, 200);
 	assert.match(res.headers.get("content-type") ?? "", /text\/event-stream/);
+	// Anti-buffering headers so the stream survives reverse proxies / tunnels.
+	assert.equal(res.headers.get("x-accel-buffering"), "no");
+	assert.match(res.headers.get("cache-control") ?? "", /no-transform/);
 
 	assert.ok(res.body);
 	const reader = res.body.getReader();

@@ -28,5 +28,12 @@ export function useAuth() {
 		scope.value = null;
 	}
 
-	return { scope, checked, check, pair, logout };
+	// Drop the cached session (e.g. after a 401) so the next navigation guard
+	// treats us as unauthenticated and routes to /pair.
+	function markUnauthenticated(): void {
+		scope.value = null;
+		checked.value = true;
+	}
+
+	return { scope, checked, check, pair, logout, markUnauthenticated };
 }

@@ -61,6 +61,13 @@ export class ApiError extends Error {
 	}
 }
 
+let unauthorizedHandler: (() => void) | null = null;
+
+/** Register a callback invoked whenever any request returns 401. */
+export function setUnauthorizedHandler(fn: () => void): void {
+	unauthorizedHandler = fn;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	const res = await fetch(`/api${path}`, {
 		...options,
@@ -71,6 +78,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	const text = await res.text();
 	const body = text ? JSON.parse(text) : null;
 	if (!res.ok) {
+		if (res.status === 401) unauthorizedHandler?.();
 		const message = body?.error?.message ?? res.statusText;
 		throw new ApiError(res.status, message);
 	}

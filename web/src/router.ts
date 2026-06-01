@@ -1,5 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { ApiError, api } from "@/api/client";
+import { setUnauthorizedHandler } from "@/api/client";
+import { useAuth } from "@/composables/useAuth";
+
+const auth = useAuth();
+
+// A 401 from any request invalidates our cached session; the next navigation
+// guard then routes to /pair. We deliberately don't navigate from here to avoid
+// fighting an in-flight route transition.
+setUnauthorizedHandler(() => auth.markUnauthenticated());
 
 export const router = createRouter({
 	history: createWebHistory(),
@@ -22,13 +30,11 @@ export const router = createRouter({
 	],
 });
 
+// Validate the session once, then trust the cached result. The previous guard
+// awaited a /auth/session round-trip on EVERY navigation, which over a tunnel
+// added latency to each view switch. A later 401 clears the cache (see above).
 router.beforeEach(async (to) => {
 	if (to.name === "pair") return true;
-	try {
-		await api.session();
-		return true;
-	} catch (e) {
-		if (e instanceof ApiError && e.status === 401) return { name: "pair" };
-		return true;
-	}
+	if (!auth.checked.value) await auth.check();
+	return auth.scope.value ? true : { name: "pair" };
 });
