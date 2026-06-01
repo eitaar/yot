@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDays, List, LogOut, Menu } from "@lucide/vue";
+import { CalendarDays, Images, List, LogOut, Menu } from "@lucide/vue";
 import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BottomDock from "@/components/BottomDock.vue";
@@ -58,6 +58,10 @@ async function onLogout() {
 					<RouterLink to="/list" :class="linkBase" :exact-active-class="linkActive">
 						<List :size="16" aria-hidden="true" />
 						<span>List</span>
+					</RouterLink>
+					<RouterLink to="/cover" :class="linkBase" :exact-active-class="linkActive">
+						<Images :size="16" aria-hidden="true" />
+						<span>Cover</span>
 					</RouterLink>
 				</nav>
 				<div class="ml-auto hidden items-center gap-1 lg:flex">

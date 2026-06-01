@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarDays, List, LogOut, MoreHorizontal } from "@lucide/vue";
+import { CalendarDays, Images, List, LogOut, MoreHorizontal } from "@lucide/vue";
 import { useRoute, useRouter } from "vue-router";
 import PWAInstallButton from "@/components/PWAInstallButton.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
@@ -34,6 +34,11 @@ async function onLogout() {
 		<RouterLink to="/list" :class="{ 'dock-active text-primary': isActive('list') }">
 			<List :size="20" aria-hidden="true" />
 			<span class="dock-label">List</span>
+		</RouterLink>
+
+		<RouterLink to="/cover" :class="{ 'dock-active text-primary': isActive('cover') }">
+			<Images :size="20" aria-hidden="true" />
+			<span class="dock-label">Cover</span>
 		</RouterLink>
 
 		<div class="dropdown dropdown-top dropdown-end">
