@@ -9,24 +9,28 @@ A single-user calendar backend where **both a REST API and an MCP server** perfo
 full CRUD over the same data, with **Server-Sent Events** for realtime sync and
 **API-key authentication**. A **Vue 3 SPA** provides a browser-based calendar UI.
 
-- **Web UI** — Vue 3 + Vite + Tailwind CSS + Schedule-X calendar
+- **Web UI** — Vue 3 + Vite + Tailwind CSS v4 + DaisyUI + Schedule-X; calendar /
+  list / cover views, light/dark themes, and an installable PWA
 - **REST API** — [Hono](https://hono.dev) + `@hono/zod-openapi` (auto-generated OpenAPI docs)
 - **Database** — `better-sqlite3` (WAL, foreign keys on)
 - **MCP** — the same operations exposed as tools over a **stdio** server
 - **Realtime** — one global SSE change feed at `/api/stream`
 - **Auth** — opaque API keys with `read` / `write` scopes; browser sessions via PIN pairing
-ijji
+- **Import & images** — `.ics` import (one-off events only) and per-event cover
+  images stored locally under `data/img/`
+
 ## Setup
 
 ```bash
 npm install
 cd web && npm install && cd ..
 npm run init     # create your first API key (shown once — copy it), saved to .env
-npm run dev:all  # start backend + frontend dev servers
+npm run dev      # start the backend (REST/SSE) on :4010
+npm run web:dev  # in a second terminal: Vite dev server on :5173
 ```
 
 Open `http://localhost:5173` (Vite dev server, proxies `/api` to the backend).
-On first visit you'll be redirected to `/pair`. In another terminal:
+On first visit you'll be redirected to `/pair`. In a third terminal:
 
 ```bash
 npm run auth     # interactive: choose scope, get a 6-digit PIN
@@ -35,9 +39,10 @@ npm run auth     # interactive: choose scope, get a 6-digit PIN
 Enter the PIN in the browser to pair.
 
 Environment variables: `PORT` (default `4010`), `DB_PATH` (default `data.db`),
-`MCP_AUTH` (default `on`), `YOT_HTTP_URL` (default `http://127.0.0.1:$PORT`),
-`YOT_SSE_RELAY` (default `on`). Run `npm run config` for an interactive `.env`
-editor.
+`IMG_DIR` (default `data/img`), `MCP_AUTH` (default `on`), `YOT_HTTP_URL`
+(default `http://127.0.0.1:$PORT`), `YOT_SSE_RELAY` (default `on`). Run
+`npm run config` for an interactive `.env` editor (also lists/creates/revokes
+API keys).
 
 Build & run the compiled server (serves the SPA at `/`):
 
@@ -91,7 +96,8 @@ calendars ──< events ──< reminders
 - **Event** — belongs to a calendar; `title`, `description` (rendered as Markdown
   in the web UI), `location`, `start_at`, `end_at`, `all_day`, optional
   `image_path` (cover image stored under `data/img/`) and `url`; carries `tags`
-  (names) and `reminders`
+  (names) and `reminders`. An `.ics`-imported event also records a `source_uid`
+  so re-importing the same file skips duplicates
 - **Reminder** — `minutes_before`, `method` (stored metadata; the server does not fire them)
 - **Tag** — unique `name`, `color`; linked to events many-to-many
 
@@ -120,7 +126,7 @@ Base path `/api`. Interactive docs at **`/api/ui`**; raw OpenAPI at **`/api/doc`
 | `GET`                  | `/img/{file}`                  | serve a stored cover image                                    |
 | `POST` `DELETE`        | `/events/{id}/tags/{tagId}`    | attach / detach a tag                                         |
 | `GET` `POST`           | `/tags`                        |                                                               |
-| `DELETE`               | `/tags/{id}`                   |                                                               |
+| `PATCH` `DELETE`       | `/tags/{id}`                   | rename / recolor (`PATCH`), delete                            |
 | `GET`                  | `/stream`                      | SSE feed                                                      |
 
 Errors return `{ "error": { "code", "message", "details?" } }` with the matching
@@ -150,8 +156,8 @@ data: {"id":"...","title":"Sync", ...}
 ```
 
 Types: `calendar.created|updated|deleted`, `event.created|updated|deleted`,
-`tag.created|deleted`. A `ping` event is sent periodically to keep idle
-connections alive.
+`tag.created|updated|deleted`. A `ready` frame is sent on connect and a `ping`
+event periodically thereafter to keep idle connections alive.
 
 ## MCP
 
@@ -217,21 +223,22 @@ browser:  Vue SPA → /api (cookie auth) → REST routes
 | Script              | Action                                                     |
 | ------------------- | ---------------------------------------------------------- |
 | `npm run dev`       | Backend dev server (tsx watch)                             |
-| `npm run dev:all`   | Backend + frontend dev servers concurrently                |
-| `npm run web:dev`   | Frontend dev server only (Vite, port 5173)                 |
-| `npm run build`     | Build backend (`tsc`) + frontend (`vue-tsc && vite build`) |
+| `npm run web:dev`   | Frontend dev server (Vite, port 5173)                      |
+| `npm run web:build` | Build the frontend only (`vue-tsc --noEmit && vite build`) |
+| `npm run build`     | Build backend (`tsc`) + frontend                           |
 | `npm start`         | Run compiled server (serves SPA at `/`)                    |
 | `npm run auth`      | Mint a PIN to pair a browser session                       |
 | `npm run init`      | Create an API key, save to `.env`                          |
-| `npm run config`    | Interactive `.env` editor                                  |
+| `npm run config`    | Interactive `.env` editor + API-key management             |
 | `npm run mcp`       | stdio MCP server (dev)                                     |
 | `npm run mcp:start` | stdio MCP server (compiled)                                |
-| `npm test`          | Run all tests                                              |
+| `npm test`          | Run all backend tests                                      |
 | `npm run format`    | Biome lint + format                                        |
 
 ## Tests
 
 ```bash
-npm test     # node:test via tsx — services, auth, event bus, REST + SSE integration
+npm test     # node:test via tsx — services, auth, event bus, image/.ics import,
+             # MCP relay, and REST + SSE integration (src/**/*.test.ts)
 npm run format
 ```
