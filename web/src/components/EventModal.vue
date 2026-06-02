@@ -88,19 +88,6 @@ const renderedDescription = computed(() =>
 	renderMarkdown(props.event?.description),
 );
 
-// Only expose http(s) hrefs — blocks javascript:/data: URLs (XSS) even if one
-// slipped past the API (e.g. legacy data). The raw url is still shown as text.
-const safeUrl = computed(() => {
-	const u = props.event?.url;
-	if (!u) return "";
-	try {
-		const { protocol } = new URL(u);
-		return protocol === "http:" || protocol === "https:" ? u : "";
-	} catch {
-		return "";
-	}
-});
-
 const dateRange = computed(() => {
 	const e = props.event;
 	if (!e) return "";
@@ -353,9 +340,9 @@ onUnmounted(() => {
 					<MapPin :size="14" aria-hidden="true" />
 					{{ event.location }}
 				</p>
-				<p v-if="safeUrl" class="flex items-center gap-1 text-sm">
+				<p v-if="event.url" class="flex items-center gap-1 text-sm">
 					<Link :size="14" aria-hidden="true" />
-					<a :href="safeUrl" target="_blank" rel="noopener noreferrer" class="link truncate min-w-0">
+					<a :href="event.url" target="_blank" rel="noopener noreferrer" class="link truncate min-w-0">
 						{{ event.url }}
 					</a>
 				</p>

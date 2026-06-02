@@ -1,8 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { isHttpUrl, isoDateTime } from "./common.js";
-
-const httpUrl = () =>
-	z.string().refine(isHttpUrl, "url must be an http(s) URL");
+import { isoDateTime } from "./common.js";
 
 export const ReminderSchema = z
 	.object({
@@ -44,7 +41,7 @@ export const CreateEventSchema = z
 		start_at: isoDateTime(),
 		end_at: isoDateTime("2026-05-29T11:00:00.000Z"),
 		all_day: z.boolean().optional().default(false),
-		url: httpUrl().optional(),
+		url: z.string().optional(),
 		image_path: z.string().optional(),
 	})
 	.openapi("CreateEvent");
@@ -58,7 +55,7 @@ export const UpdateEventSchema = z
 		start_at: isoDateTime().optional(),
 		end_at: isoDateTime().optional(),
 		all_day: z.boolean().optional(),
-		url: httpUrl().nullable().optional(),
+		url: z.string().nullable().optional(),
 		image_path: z.string().nullable().optional(),
 	})
 	.openapi("UpdateEvent");
