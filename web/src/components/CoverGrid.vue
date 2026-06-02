@@ -52,9 +52,11 @@ function mediaStyle(e: Event): Record<string, string> {
 }
 
 function tierClass(tier: CoverTier): string {
-	if (tier === "hero") return "col-span-4 row-span-4 xl:col-span-6";
-	if (tier === "feature") return "col-span-4 row-span-3 xl:col-span-4";
-	return "col-span-2 row-span-2 xl:col-span-2";
+	// Two footprints sharing one ~16:9 aspect: big (hero + promoted features)
+	// and small (normal). The contrast is pure scale; placement of the big tiles
+	// (driven by the layout jitter) breaks the grid into an organic mosaic.
+	if (tier === "hero" || tier === "feature") return "col-span-2 row-span-2";
+	return "col-span-1 row-span-1";
 }
 
 function titleClass(tier: CoverTier): string {
@@ -82,7 +84,7 @@ function calendarName(id: string): string {
 <template>
 	<div
 		v-if="upcoming.length"
-		class="grid auto-rows-[3rem] grid-flow-row-dense grid-cols-4 gap-3 pb-2 sm:auto-rows-[3.25rem] sm:grid-cols-8 sm:gap-4 xl:grid-cols-12"
+		class="mx-auto grid w-full max-w-6xl auto-rows-[8.5rem] grid-flow-row-dense grid-cols-2 gap-3 pb-2 sm:auto-rows-[9.5rem] sm:grid-cols-3 sm:gap-2 lg:grid-cols-4"
 	>
 		<button
 			v-for="{ event: e, layout } in coverCards"
@@ -103,25 +105,6 @@ function calendarName(id: string): string {
 
 			<!-- Content, bottom-left over the mask. -->
 			<div class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 p-3 text-white sm:p-4">
-				<div v-if="layout.showCalendar" class="flex items-center gap-1.5">
-					<span
-						class="badge badge-sm gap-1 border-0 bg-white/15 font-medium text-white backdrop-blur-md"
-					>
-						<span
-							class="size-1.5 rounded-full"
-							:style="{ background: calColor(e.calendar_id) }"
-							aria-hidden="true"
-						/>
-						{{ calendarName(e.calendar_id) }}
-					</span>
-					<span
-						v-if="e.tags.length"
-						class="badge badge-sm border-0 bg-primary font-semibold text-primary-content"
-					>
-						{{ e.tags[0] }}
-					</span>
-				</div>
-
 				<h3 class="font-extrabold drop-shadow-sm" :class="titleClass(layout.tier)" :title="e.title">
 					<span class="block" :class="layout.tier === 'hero' ? 'line-clamp-2' : 'truncate'">
 						{{ e.title }}
