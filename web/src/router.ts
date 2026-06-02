@@ -23,11 +23,6 @@ export const router = createRouter({
 			component: () => import("@/views/ListView.vue"),
 		},
 		{
-			path: "/cover",
-			name: "cover",
-			component: () => import("@/views/ListView.vue"),
-		},
-		{
 			path: "/pair",
 			name: "pair",
 			component: () => import("@/views/PairView.vue"),

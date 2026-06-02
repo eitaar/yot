@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { Plus, Search, SlidersHorizontal } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
 import type { Event, Tag } from "@/api/client";
 import AgendaList from "@/components/AgendaList.vue";
-import CoverGrid from "@/components/CoverGrid.vue";
 import EventModal from "@/components/EventModal.vue";
 import FilterSheet from "@/components/FilterSheet.vue";
 import Sidebar from "@/components/Sidebar.vue";
@@ -50,9 +48,6 @@ const {
 } = useFilters();
 
 const filterSheet = useFilterSheet();
-
-const route = useRoute();
-const coverMode = computed(() => route.name === "cover");
 
 const search = ref("");
 const modalMode = ref<"create" | "view" | "edit" | null>(null);
@@ -218,14 +213,7 @@ onMounted(refreshAll);
 					<span class="hidden sm:inline">New event</span>
 				</button>
 			</div>
-			<CoverGrid
-				v-if="coverMode"
-				:events="visibleEvents"
-				:calendars="calendars"
-				@open="openView"
-			/>
 			<AgendaList
-				v-else
 				:events="visibleEvents"
 				:calendars="calendars"
 				:tags="tags"
