@@ -184,8 +184,10 @@ run it directly during development with `npm run mcp`.
 
 It exposes the same CRUD as tools: `list_calendars`, `create_calendar`,
 `update_calendar`, `delete_calendar`, `list_events`, `get_event`, `create_event`,
-`update_event`, `delete_event`, `add_reminder`, `list_tags`, `create_tag`,
-`tag_event`, `untag_event`. Write tools return an error result for read-only keys.
+`update_event`, `delete_event`, `add_reminder`, `remove_reminder`,
+`get_event_image`, `upload_image_from_url`, `import_ics`, `list_tags`,
+`create_tag`, `update_tag`, `delete_tag`, `tag_event`, `untag_event`. Write tools
+return an error result for read-only keys.
 
 > The stdio MCP server is a **separate process** with its own in-memory event
 > bus. A built-in **relay** bridges the gap: each MCP mutation is POSTed to the

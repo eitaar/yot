@@ -13,20 +13,33 @@ import {
 	EventQuerySchema,
 	UpdateEventSchema,
 } from "../schemas/event.js";
-import { CreateTagSchema } from "../schemas/tag.js";
+import { CreateTagSchema, UpdateTagSchema } from "../schemas/tag.js";
 import type { Services } from "../services/container.js";
 
 const idShape = { id: z.string() };
 
 /** Run a service call and shape the result (or error) as an MCP tool result. */
 async function run(fn: () => unknown): Promise<CallToolResult> {
-	try {
+	return runResult(async () => {
 		const data = await fn();
 		return {
 			content: [
 				{ type: "text", text: JSON.stringify(data ?? { ok: true }, null, 2) },
 			],
 		};
+	});
+}
+
+/**
+ * Like `run`, but the callback builds the whole tool result — used by tools that
+ * return non-JSON content (e.g. an image block). Thrown errors get the same
+ * `isError` text shaping as `run`.
+ */
+async function runResult(
+	fn: () => CallToolResult | Promise<CallToolResult>,
+): Promise<CallToolResult> {
+	try {
+		return await fn();
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		return { content: [{ type: "text", text: message }], isError: true };
@@ -39,7 +52,7 @@ async function run(fn: () => unknown): Promise<CallToolResult> {
  * refuse to run for read-only keys.
  */
 export function buildMcpServer(services: Services, scope: Scope): McpServer {
-	const { calendars, events, tags } = services;
+	const { calendars, events, tags, images, importer } = services;
 	const server = new McpServer({ name: "yot-calendar", version: "1.0.0" });
 	const requireWrite = () => {
 		if (scope !== "write")
@@ -142,6 +155,73 @@ export function buildMcpServer(services: Services, scope: Scope): McpServer {
 				return events.addReminder(event_id, CreateReminderSchema.parse(rest));
 			}),
 	);
+	server.registerTool(
+		"remove_reminder",
+		{
+			description: "Remove a reminder from an event",
+			inputSchema: { event_id: z.string(), reminder_id: z.string() },
+		},
+		({ event_id, reminder_id }) =>
+			run(() => {
+				requireWrite();
+				events.removeReminder(event_id, reminder_id);
+			}),
+	);
+	server.registerTool(
+		"get_event_image",
+		{
+			description:
+				"Get an event's cover image as a viewable image. Returns a message if the event has no cover.",
+			inputSchema: idShape,
+		},
+		({ id }) =>
+			runResult(() => {
+				const event = events.get(id);
+				if (!event.image_path)
+					return {
+						content: [{ type: "text", text: `Event ${id} has no cover image` }],
+					};
+				const { bytes, mime } = images.read(event.image_path);
+				return {
+					content: [
+						{ type: "image", data: bytes.toString("base64"), mimeType: mime },
+					],
+				};
+			}),
+	);
+
+	// --- images ---
+	server.registerTool(
+		"upload_image_from_url",
+		{
+			description:
+				"Fetch a remote image into local storage and return its { path }, " +
+				"suitable for an event's image_path. http(s) only; ≤ 5 MB.",
+			inputSchema: { url: z.string() },
+		},
+		({ url }) =>
+			run(async () => {
+				requireWrite();
+				return { path: await images.saveFromUrl(url) };
+			}),
+	);
+
+	// --- import ---
+	server.registerTool(
+		"import_ics",
+		{
+			description:
+				"Import iCalendar (.ics) text into a calendar as one-off events. " +
+				"Skips recurring (RRULE) and already-imported (UID) events.",
+			inputSchema: { calendar_id: z.string(), ics: z.string() },
+		},
+		({ calendar_id, ics }) =>
+			run(() => {
+				requireWrite();
+				calendars.get(calendar_id); // throws NotFoundError for an unknown id
+				return importer.importIcs(ics, calendar_id);
+			}),
+	);
 
 	// --- tags ---
 	server.registerTool("list_tags", { description: "List all tags" }, () =>
@@ -154,6 +234,27 @@ export function buildMcpServer(services: Services, scope: Scope): McpServer {
 			run(() => {
 				requireWrite();
 				return tags.create(args);
+			}),
+	);
+	server.registerTool(
+		"update_tag",
+		{
+			description: "Update a tag",
+			inputSchema: { ...idShape, ...UpdateTagSchema.shape },
+		},
+		({ id, ...patch }) =>
+			run(() => {
+				requireWrite();
+				return tags.update(id, patch);
+			}),
+	);
+	server.registerTool(
+		"delete_tag",
+		{ description: "Delete a tag", inputSchema: idShape },
+		({ id }) =>
+			run(() => {
+				requireWrite();
+				tags.delete(id);
 			}),
 	);
 	server.registerTool(
