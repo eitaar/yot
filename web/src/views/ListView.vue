@@ -12,7 +12,7 @@ import { useCalendars } from "@/composables/useCalendars";
 import { useComposer } from "@/composables/useComposer";
 import { useEvents } from "@/composables/useEvents";
 import { useFilterSheet } from "@/composables/useFilterSheet";
-import { useFilters } from "@/composables/useFilters";
+import { type FilterScope, useFilters } from "@/composables/useFilters";
 import { coalesce } from "@/composables/useRefresh";
 import { type ChangeResource, useSSE } from "@/composables/useSSE";
 import { useTags } from "@/composables/useTags";
@@ -38,34 +38,29 @@ const {
 	update: updateTag,
 	remove: removeTag,
 } = useTags();
-const {
-	enabledCalendarIds,
-	selectedTag,
-	syncCalendars,
-	toggleCalendar,
-	setAllCalendars,
-	setTag,
-	buildQuery,
-	applyCalendarFilter,
-} = useFilters();
-
 const filterSheet = useFilterSheet();
 
 const route = useRoute();
 const coverMode = computed(() => route.name === "cover");
+// List and Cover share this component instance; the scope flips with the route
+// so each keeps its own calendar/tag/search selection without a remount.
+const scope = computed<FilterScope>(() => (coverMode.value ? "cover" : "list"));
 
-const search = ref("");
+const {
+	enabledCalendarIds,
+	selectedTag,
+	search,
+	syncCalendars,
+	toggleCalendar,
+	setAllCalendars,
+	setTag,
+	applyFilters,
+} = useFilters(scope);
 const modalMode = ref<"create" | "view" | "edit" | null>(null);
 const selected = ref<Event | null>(null);
 const modalRef = ref<InstanceType<typeof EventModal> | null>(null);
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-function query(): Record<string, string> {
-	const q = buildQuery();
-	if (search.value) q.q = search.value;
-	return q;
-}
 
 // Reload only what changed, coalescing the post-mutation refresh with the SSE
 // broadcast it triggers (and any SSE bursts) into a single fetch cycle.
@@ -77,7 +72,7 @@ async function runRefresh() {
 	const jobs: Promise<unknown>[] = [];
 	if (want.has("calendar")) jobs.push(loadCals());
 	if (want.has("tag")) jobs.push(loadTags());
-	if (want.has("event")) jobs.push(loadEvents(query()));
+	if (want.has("event")) jobs.push(loadEvents());
 	await Promise.all(jobs);
 	if (want.has("calendar")) syncCalendars(calendars.value.map((c) => c.id));
 }
@@ -93,14 +88,13 @@ function refreshAll(): Promise<void> {
 	return refresh("calendar", "tag", "event");
 }
 
-// Search and tag filter both reshape the server-side event query.
-function runSearch(): Promise<void> {
-	return refresh("event");
+// Search now filters client-side (live, via v-model on `search`). Enter / the
+// Search button just drop focus — handy for dismissing the mobile keyboard.
+function runSearch(): void {
+	(document.activeElement as HTMLElement | null)?.blur();
 }
 
-const visibleEvents = computed(() => applyCalendarFilter(events.value));
-
-watch(selectedTag, () => refresh("event"));
+const visibleEvents = computed(() => applyFilters(events.value));
 
 function closeModal() {
 	modalMode.value = null;

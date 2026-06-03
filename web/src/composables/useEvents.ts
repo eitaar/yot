@@ -5,7 +5,9 @@ import { api } from "@/api/client";
 const events = ref<Event[]>([]);
 
 export function useEvents() {
-	async function load(query: Record<string, string> = {}) {
+	// One broad fetch feeds every view; filtering is client-side (see useFilters).
+	// 500 is the server's max page size — enough headroom for the client filters.
+	async function load(query: Record<string, string> = { limit: "500" }) {
 		events.value = await api.listEvents(query);
 	}
 	// Mutations don't reload here: callers refresh once (scoped + coalesced) after

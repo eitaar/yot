@@ -84,7 +84,7 @@ function calendarName(id: string): string {
 <template>
 	<div
 		v-if="upcoming.length"
-		class="mx-auto grid w-full max-w-6xl auto-rows-[8.5rem] grid-flow-row-dense grid-cols-2 gap-3 pb-2 sm:auto-rows-[9.5rem] sm:grid-cols-3 sm:gap-2 lg:grid-cols-4"
+		class="grid w-full auto-rows-[8.5rem] grid-flow-row-dense grid-cols-2 gap-3 pb-2 sm:auto-rows-[9.5rem] sm:grid-cols-3 sm:gap-2 lg:grid-cols-4 2xl:grid-cols-5 min-[1800px]:grid-cols-6"
 	>
 		<button
 			v-for="{ event: e, layout } in coverCards"
