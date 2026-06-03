@@ -103,7 +103,6 @@ function refreshAll(): Promise<void> {
 	return refresh("calendar", "tag", "event");
 }
 
-
 // The bottom dock's "+ New" lives outside this view; it bumps the composer.
 watch(
 	() => composer.tick.value,
