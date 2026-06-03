@@ -51,9 +51,8 @@ const {
 	toggleCalendar,
 	setAllCalendars,
 	setTag,
-	buildQuery,
-	applyCalendarFilter,
-} = useFilters();
+	applyFilters,
+} = useFilters("calendar");
 
 const isDesktop = useIsDesktop();
 const { resolvedTheme } = useTheme();
@@ -73,7 +72,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 // Calendar filtering is client-side (DesktopCalendar/MobileCalendar both render
 // this already-filtered set), so toggling calendars needs no refetch.
-const visibleEvents = computed(() => applyCalendarFilter(events.value));
+const visibleEvents = computed(() => applyFilters(events.value));
 const activeCalendarCount = computed(() => enabledCalendarIds.value.size);
 
 // Reload only the resources that actually changed, coalescing the bursts that
@@ -88,7 +87,7 @@ async function runRefresh() {
 	const jobs: Promise<unknown>[] = [];
 	if (want.has("calendar")) jobs.push(loadCals());
 	if (want.has("tag")) jobs.push(loadTags());
-	if (want.has("event")) jobs.push(loadEvents(buildQuery()));
+	if (want.has("event")) jobs.push(loadEvents());
 	await Promise.all(jobs);
 	if (want.has("calendar")) syncCalendars(calendars.value.map((c) => c.id));
 }
@@ -104,8 +103,6 @@ function refreshAll(): Promise<void> {
 	return refresh("calendar", "tag", "event");
 }
 
-// Tag filter is server-side → refetch events.
-watch(selectedTag, () => refresh("event"));
 
 // The bottom dock's "+ New" lives outside this view; it bumps the composer.
 watch(
