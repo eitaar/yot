@@ -42,8 +42,12 @@ Data model: `calendars → events → reminders`, plus `events ↔ tags`
 | One event | `get_event` | id |
 | New event | `create_event` | calendar_id, title, start_at, end_at, all_day?, description?, location?, url?, image_path? |
 | Edit / remove event | `update_event` / `delete_event` | id (+ fields) |
-| Add reminder | `add_reminder` | event_id, minutes_before, method? |
+| Add / remove reminder | `add_reminder` / `remove_reminder` | event_id (+ minutes_before / reminder_id) |
+| Upload cover image | `upload_image_from_url` | url → `{ path }` (set as `image_path`) |
+| View an event's cover | `get_event_image` | id → image |
+| Import `.ics` | `import_ics` | calendar_id, ics (text) |
 | List / new tag | `list_tags` / `create_tag` | (name, color?) |
+| Edit / remove tag | `update_tag` / `delete_tag` | id (+ name?, color?) |
 | Tag / untag event | `tag_event` / `untag_event` | event_id, tag_id |
 
 `list_events`: `from`/`to` bound `start_at` (inclusive); `q` searches title +
@@ -69,9 +73,11 @@ week's UTC bounds; narrow with `calendarId`, `tag`, or `q`.
 ## REST fallback
 
 If MCP is not wired up, every operation maps to `/api` with
-`Authorization: Bearer cal_...`. See [reference.md](reference.md) for full tool
-parameters and return shapes, the REST endpoint table (including REST-only
-features like image upload and `.ics` import), field semantics, and error codes.
+`Authorization: Bearer cal_...`. The MCP tools now cover the full REST CRUD
+(including cover images and `.ics` import); only the SSE `/stream` feed and the
+auth pairing routes are REST-only. See [reference.md](reference.md) for full tool
+parameters and return shapes, the REST endpoint table, field semantics, and error
+codes.
 
 ## Common mistakes
 

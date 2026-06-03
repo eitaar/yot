@@ -84,8 +84,14 @@ call returns the JSON of the affected resource; a void operation (deletes) retur
 | `update_event` | write | `id` + any event field (omit unchanged) | `Event` |
 | `delete_event` | write | `id` | `{ ok: true }` |
 | `add_reminder` | write | `event_id`, `minutes_before`, `method?` | `Reminder` |
+| `remove_reminder` | write | `event_id`, `reminder_id` | `{ ok: true }` |
+| `get_event_image` | read | `id` | image content block (or a "no cover" message) |
+| `upload_image_from_url` | write | `url` | `{ path }` (set as an event's `image_path`) |
+| `import_ics` | write | `calendar_id`, `ics` | `ImportSummary` |
 | `list_tags` | read | — | `Tag[]` |
 | `create_tag` | write | `name`, `color?` | `Tag` (use its `id` to attach) |
+| `update_tag` | write | `id`, `name?`, `color?` | `Tag` |
+| `delete_tag` | write | `id` | `{ ok: true }` |
 | `tag_event` | write | `event_id`, `tag_id` | `Event` (with updated tags) |
 | `untag_event` | write | `event_id`, `tag_id` | `Event` |
 
@@ -94,9 +100,15 @@ call returns the JSON of the affected resource; a void operation (deletes) retur
 - `minutes_before` is an integer ≥ 0; `method` defaults to `"notification"`.
 - `create_calendar` then `create_event`: the calendar must already exist.
 - `tag_event` requires both the event and the tag to already exist.
+- `get_event_image` returns the cover as a viewable image block (so a multimodal
+  agent can see it); events with no `image_path` return a short text message.
+- `upload_image_from_url` fetches an http(s) image (≤ 5 MB; private/loopback hosts
+  refused) and returns `{ path }` — set it as an event's `image_path`.
+- `import_ics` takes the iCalendar **text** directly (the REST route takes a
+  file); `calendar_id` must already exist.
 
-**Not available over MCP** (REST only): updating/deleting a tag, removing a
-reminder, image upload, and `.ics` import — see below.
+The MCP tools now cover the full REST CRUD. **REST only** (no MCP equivalent):
+the SSE `/stream` feed and the auth pairing routes (`/auth/*`) — see below.
 
 ### `list_events` query semantics
 
@@ -140,20 +152,24 @@ overlaps the window.
 
 `?key=cal_xxxx` is accepted on any authed route.
 
-### Cover images (REST only)
+### Cover images
 
-1. `POST /uploads/image` (`multipart/form-data`, field `file`) — MIME must be
-   `image/jpeg|png|webp|gif`, ≤ 5 MB. Returns `{ "path": "<uuid>.<ext>" }`.
-   Alternatively `POST /uploads/image-from-url` with `{ url }` (http(s) only,
-   private/loopback addresses refused).
+1. **Get a `path`.** Over MCP: `upload_image_from_url({ url })`. Over REST:
+   `POST /uploads/image` (`multipart/form-data`, field `file`) — MIME must be
+   `image/jpeg|png|webp|gif`, ≤ 5 MB — or `POST /uploads/image-from-url` with
+   `{ url }`. All return `{ "path": "<uuid>.<ext>" }` (http(s) only,
+   private/loopback addresses refused). Raw multipart upload is REST-only.
 2. Set the event's `image_path` to the returned filename (`create_event` /
    `update_event` accept `image_path`).
-3. Fetch with `GET /api/img/{filename}`.
+3. View it. Over MCP: `get_event_image({ id })` returns a viewable image block.
+   Over REST: `GET /api/img/{filename}` returns the bytes.
 
-### `.ics` import (REST only)
+### `.ics` import
 
-`POST /events/import` — `multipart/form-data` with a `file` (iCalendar, ≤ 10 MB)
-and a `calendar_id` (must exist). Each `VEVENT` becomes a one-off event. Response:
+Over MCP: `import_ics({ calendar_id, ics })` — pass the iCalendar **text**
+directly. Over REST: `POST /events/import` — `multipart/form-data` with a `file`
+(iCalendar, ≤ 10 MB) and a `calendar_id`. The `calendar_id` must exist. Each
+`VEVENT` becomes a one-off event. Response:
 
 ```jsonc
 { "created": number,
