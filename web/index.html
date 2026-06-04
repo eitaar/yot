@@ -3,13 +3,52 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta name="theme-color" content="#10b981" />
+		<meta name="theme-color" content="#047857" />
+		<meta
+			name="description"
+			content="yot calendar — a focused, fast calendar front end for browsing and managing your events."
+		/>
 		<link rel="icon" href="/pwa-192x192.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/pwa-192x192.svg" />
 		<title>yot calendar</title>
+		<style>
+			/* App-shell skeleton shown before the JS bundle hydrates. Gives the page
+			   immediate content (faster FCP, no blank screen) and is replaced when
+			   Vue mounts into #app. Colors mirror the light theme background. */
+			#app-skeleton {
+				position: fixed;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #faf9f7;
+			}
+			@media (prefers-color-scheme: dark) {
+				#app-skeleton {
+					background: #1a2e28;
+				}
+			}
+			#app-skeleton .spinner {
+				width: 36px;
+				height: 36px;
+				border: 3px solid rgba(4, 120, 87, 0.25);
+				border-top-color: #047857;
+				border-radius: 50%;
+				animation: app-spin 0.8s linear infinite;
+			}
+			@keyframes app-spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+		</style>
 	</head>
 	<body>
-		<div id="app"></div>
+		<div id="app">
+			<div id="app-skeleton" aria-hidden="true">
+				<div class="spinner"></div>
+			</div>
+		</div>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>

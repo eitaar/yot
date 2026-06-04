@@ -11,6 +11,23 @@ export default defineConfig(({ mode }) => ({
 		VitePWA({
 			registerType: "autoUpdate",
 			includeAssets: ["pwa-192x192.svg", "pwa-512x512.svg"],
+			workbox: {
+				// Keep the precache to the app shell. Fonts carry unicode-range, so the
+				// browser only fetches the subset it actually needs — precaching every
+				// woff/woff2 up front just bloats the service-worker install.
+				globPatterns: ["**/*.{js,css,html,svg}"],
+				runtimeCaching: [
+					{
+						urlPattern: /\.woff2?$/,
+						handler: "CacheFirst",
+						options: {
+							cacheName: "fonts",
+							expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 },
+							cacheableResponse: { statuses: [0, 200] },
+						},
+					},
+				],
+			},
 			manifest: {
 				name: "yot calendar",
 				short_name: "yot",
