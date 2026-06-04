@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Check, ImagePlus, Link, MapPin, Pencil, Plus, X } from "@lucide/vue";
-import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
 import { api, imageSrc } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
@@ -84,8 +84,14 @@ function tagColor(name: string): string {
 	return props.tags.find((t) => t.name === name)?.color ?? "#64748b";
 }
 
-const renderedDescription = computed(() =>
-	renderMarkdown(props.event?.description),
+// markdown-it is loaded on demand (see lib/markdown.ts), so rendering is async.
+const renderedDescription = ref("");
+watch(
+	() => props.event?.description,
+	async (description) => {
+		renderedDescription.value = await renderMarkdown(description);
+	},
+	{ immediate: true },
 );
 
 const dateRange = computed(() => {
