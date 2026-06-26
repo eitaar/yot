@@ -26,6 +26,15 @@ export default defineConfig(({ mode }) => ({
 							cacheableResponse: { statuses: [0, 200] },
 						},
 					},
+					{
+						urlPattern: /\/api\/img\//,
+						handler: "CacheFirst",
+						options: {
+							cacheName: "cover-images",
+							expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+							cacheableResponse: { statuses: [0, 200] },
+						},
+					},
 				],
 			},
 			manifest: {

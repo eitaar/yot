@@ -3,6 +3,9 @@ import { onMounted, ref } from "vue";
 import type { ImportSummary } from "@/api/client";
 import { api } from "@/api/client";
 import { useCalendars } from "@/composables/useCalendars";
+import { useOnline } from "@/composables/useOnline";
+
+const { online } = useOnline();
 
 const emit = defineEmits<{ close: [] }>();
 const { calendars, load } = useCalendars();
@@ -72,8 +75,8 @@ async function submit() {
 				<p v-if="error" class="text-sm text-error">{{ error }}</p>
 				<div class="modal-action">
 					<button type="button" class="btn btn-ghost btn-sm" @click="emit('close')">Cancel</button>
-					<button :disabled="busy" class="btn btn-primary btn-sm">
-						{{ busy ? "Importing…" : "Import" }}
+					<button :disabled="busy || !online" class="btn btn-primary btn-sm">
+						{{ !online ? "Offline" : busy ? "Importing…" : "Import" }}
 					</button>
 				</div>
 			</form>

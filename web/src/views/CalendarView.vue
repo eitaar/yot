@@ -14,6 +14,7 @@ import { useFilters } from "@/composables/useFilters";
 import { useIsDesktop } from "@/composables/useMediaQuery";
 import { coalesce } from "@/composables/useRefresh";
 import { type ChangeResource, useSSE } from "@/composables/useSSE";
+import { useSync } from "@/composables/useSync";
 import { useTags } from "@/composables/useTags";
 import { useTheme } from "@/composables/useTheme";
 
@@ -171,6 +172,7 @@ function openView(e: Event) {
 }
 
 const { connected } = useSSE((resource) => refresh(resource));
+const { pendingCount, syncing } = useSync(refreshAll);
 onMounted(refreshAll);
 </script>
 
@@ -179,6 +181,8 @@ onMounted(refreshAll);
 		<Sidebar
 			:calendars="calendars"
 			:connected="connected"
+			:pending-count="pendingCount"
+			:syncing="syncing"
 			:tags="tags"
 			:enabled-calendar-ids="enabledCalendarIds"
 			:selected-tag="selectedTag"
@@ -232,6 +236,8 @@ onMounted(refreshAll);
 	<FilterSheet
 		:calendars="calendars"
 		:connected="connected"
+		:pending-count="pendingCount"
+		:syncing="syncing"
 		:tags="tags"
 		:enabled-calendar-ids="enabledCalendarIds"
 		:selected-tag="selectedTag"

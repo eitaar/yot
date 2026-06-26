@@ -12,6 +12,8 @@ defineProps<{
 	calendars: Calendar[];
 	tags: Tag[];
 	connected: boolean;
+	pendingCount?: number;
+	syncing?: boolean;
 	enabledCalendarIds: Set<string>;
 	selectedTag: string | null;
 }>();
@@ -31,12 +33,21 @@ const { isOpen } = useSidebar();
 			:selected-tag="selectedTag"
 			v-bind="$attrs"
 		/>
-		<div class="mt-auto px-1">
+		<div class="mt-auto space-y-1 px-1">
 			<span
 				class="badge badge-sm gap-1"
 				:class="connected ? 'badge-success' : 'badge-error'"
 			>
 				{{ connected ? "Live" : "Offline" }}
+			</span>
+			<span v-if="syncing" class="badge badge-info badge-sm gap-1">
+				Syncing…
+			</span>
+			<span
+				v-else-if="pendingCount"
+				class="badge badge-warning badge-sm gap-1"
+			>
+				{{ pendingCount }} pending
 			</span>
 		</div>
 	</aside>
