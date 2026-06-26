@@ -4,7 +4,10 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import type { Calendar, Event, EventUpdate, Tag } from "@/api/client";
 import { api, imageSrc } from "@/api/client";
 import ColorPicker from "@/components/ColorPicker.vue";
+import { useOnline } from "@/composables/useOnline";
 import { renderMarkdown } from "@/lib/markdown";
+
+const { online } = useOnline();
 
 type CreateInput = {
 	calendar_id: string;
@@ -447,7 +450,8 @@ onUnmounted(() => {
 						<button
 							type="button"
 							class="btn btn-sm w-full gap-1"
-							:disabled="imgBusy"
+							:disabled="imgBusy || !online"
+							:title="online ? undefined : 'Image upload requires a connection'"
 							@click="fileInput?.click()"
 						>
 							<ImagePlus :size="15" aria-hidden="true" />
@@ -470,7 +474,7 @@ onUnmounted(() => {
 							<button
 								type="button"
 								class="btn btn-sm join-item"
-								:disabled="imgBusy"
+								:disabled="imgBusy || !online"
 								aria-label="Use image URL"
 								@click="onAddImageUrl"
 							>

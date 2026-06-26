@@ -12,6 +12,8 @@ defineProps<{
 	calendars: Calendar[];
 	tags: Tag[];
 	connected: boolean;
+	pendingCount?: number;
+	syncing?: boolean;
 	enabledCalendarIds: Set<string>;
 	selectedTag: string | null;
 }>();
@@ -29,6 +31,15 @@ const { isOpen, close } = useFilterSheet();
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-xl font-semibold">Filters</h2>
 				<div class="flex items-center gap-2">
+					<span v-if="syncing" class="badge badge-info badge-sm gap-1">
+						Syncing…
+					</span>
+					<span
+						v-else-if="pendingCount"
+						class="badge badge-warning badge-sm gap-1"
+					>
+						{{ pendingCount }} pending
+					</span>
 					<span
 						class="badge badge-sm gap-1"
 						:class="connected ? 'badge-success' : 'badge-error'"
