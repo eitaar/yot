@@ -16,6 +16,14 @@ export default defineConfig(({ mode }) => ({
 				// browser only fetches the subset it actually needs — precaching every
 				// woff/woff2 up front just bloats the service-worker install.
 				globPatterns: ["**/*.{js,css,html,svg}"],
+				// SPA offline support: serve the precached shell for any navigation the
+				// precache can't resolve (e.g. reloading or deep-linking to /list, /cover,
+				// /pair while offline). Without this, Workbox only matches "/" via its
+				// directoryIndex default and every other route falls through to the network.
+				navigateFallback: "/index.html",
+				// API + SSE + image endpoints are backend routes, not SPA routes — never
+				// answer them with the app shell. (These are same-origin under /api/ in prod.)
+				navigateFallbackDenylist: [/^\/api\//],
 				runtimeCaching: [
 					{
 						urlPattern: /\.woff2?$/,
