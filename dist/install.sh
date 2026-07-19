@@ -1,49 +1,128 @@
 #!/bin/sh
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="${YOT_DATA_DIR:-$HOME/.yot}"
-SERVICE_FILE="/etc/systemd/system/yot-server.service"
+REPO="eitaar/yot"
+DATA_DIR="${YOT_DATA_DIR:-}"
 
-echo "==> Installing to $DATA_DIR"
-mkdir -p "$DATA_DIR"
-install -m 755 "$SCRIPT_DIR/yot-server" "$DATA_DIR/yot-server"
-install -m 755 "$SCRIPT_DIR/yot-mcp" "$DATA_DIR/yot-mcp"
-install -m 755 "$SCRIPT_DIR/yot" "$DATA_DIR/yot"
+detect_data_dir() {
+    if [ -n "$DATA_DIR" ]; then return; fi
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            DATA_DIR="${APPDATA}/yot" ;;
+        Darwin)
+            DATA_DIR="$HOME/.yot" ;;
+        *)
+            DATA_DIR="$HOME/.yot" ;;
+    esac
+}
 
-echo "==> Adding $DATA_DIR to PATH (if needed)"
-case ":$PATH:" in
-    *":$DATA_DIR:"*) ;;
-    *) echo "export PATH=\"$DATA_DIR:\$PATH\"" >> "$HOME/.profile"
-       echo "  Added to ~/.profile (restart shell or run: source ~/.profile)" ;;
-esac
+detect_platform() {
+    OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    ARCH="$(uname -m)"
 
-echo "==> Running yot init"
-"$DATA_DIR/yot" init
+    case "$OS" in
+        linux)   OS="linux" ;;
+        darwin)  OS="darwin" ;;
+        mingw*|msys*|cygwin*) OS="windows" ;;
+        *)       echo "Unsupported OS: $OS"; exit 1 ;;
+    esac
 
-echo "==> Installing systemd service"
-cat > "$SERVICE_FILE" <<EOF
-[Unit]
-Description=yot calendar server
-After=network.target
+    case "$ARCH" in
+        x86_64|amd64)  ARCH="amd64" ;;
+        aarch64|arm64) ARCH="arm64" ;;
+        *)             echo "Unsupported architecture: $ARCH"; exit 1 ;;
+    esac
+}
 
-[Service]
-Type=simple
-ExecStart=$DATA_DIR/yot-server
-User=$(whoami)
-Restart=on-failure
-RestartSec=5
-Environment=PORT=4010
+get_latest_version() {
+    curl -sSL "https://api.github.com/repos/$REPO/releases/latest" \
+        | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"//;s/".*//'
+}
 
-[Install]
-WantedBy=multi-user.target
-EOF
+download_and_install() {
+    VERSION="$1"
+    EXT="tar.gz"
+    if [ "$OS" = "windows" ]; then EXT="zip"; fi
 
-systemctl daemon-reload
-systemctl enable --now yot-server
+    ARCHIVE="yot-${VERSION}-${OS}-${ARCH}.${EXT}"
+    URL="https://github.com/$REPO/releases/download/${VERSION}/${ARCHIVE}"
 
-echo ""
-echo "Done. yot-server is running on port 4010."
-echo "  Install dir: $DATA_DIR"
-echo "  Logs:        journalctl -u yot-server -f"
-echo "  Status:      systemctl status yot-server"
+    echo "==> Downloading $ARCHIVE"
+    TMPDIR="$(mktemp -d)"
+    curl -sSL -o "$TMPDIR/$ARCHIVE" "$URL" || {
+        echo "Failed to download $URL"
+        echo "Check https://github.com/$REPO/releases for available builds."
+        rm -rf "$TMPDIR"
+        exit 1
+    }
+
+    echo "==> Installing to $DATA_DIR"
+    mkdir -p "$DATA_DIR"
+
+    if [ "$EXT" = "zip" ]; then
+        unzip -o -q "$TMPDIR/$ARCHIVE" -d "$TMPDIR/extract"
+    else
+        mkdir -p "$TMPDIR/extract"
+        tar xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR/extract"
+    fi
+
+    for bin in yot-server yot-mcp yot; do
+        found="$(find "$TMPDIR/extract" -name "$bin" -o -name "$bin.exe" | head -1)"
+        if [ -n "$found" ]; then
+            cp "$found" "$DATA_DIR/"
+            chmod +x "$DATA_DIR/$(basename "$found")"
+        fi
+    done
+
+    rm -rf "$TMPDIR"
+}
+
+add_to_path() {
+    case ":$PATH:" in
+        *":$DATA_DIR:"*) return ;;
+    esac
+
+    SHELL_NAME="$(basename "${SHELL:-/bin/sh}")"
+    case "$SHELL_NAME" in
+        zsh)  RC="$HOME/.zshrc" ;;
+        fish) RC="$HOME/.config/fish/config.fish" ;;
+        *)    RC="$HOME/.profile" ;;
+    esac
+
+    if [ "$SHELL_NAME" = "fish" ]; then
+        echo "set -gx PATH $DATA_DIR \$PATH" >> "$RC"
+    else
+        echo "export PATH=\"$DATA_DIR:\$PATH\"" >> "$RC"
+    fi
+    echo "  Added to $RC (restart shell or: source $RC)"
+    export PATH="$DATA_DIR:$PATH"
+}
+
+main() {
+    detect_data_dir
+    detect_platform
+
+    echo "yot installer"
+    echo "  Platform: ${OS}/${ARCH}"
+    echo "  Install:  ${DATA_DIR}"
+    echo ""
+
+    VERSION="$(get_latest_version)"
+    if [ -z "$VERSION" ]; then
+        echo "Failed to fetch latest version. Check your internet connection."
+        exit 1
+    fi
+    echo "==> Latest version: $VERSION"
+
+    download_and_install "$VERSION"
+    add_to_path
+
+    echo "==> Running yot init"
+    "$DATA_DIR/yot" init
+
+    echo ""
+    echo "Done! Start the server with:"
+    echo "  yot-server"
+}
+
+main

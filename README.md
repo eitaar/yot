@@ -2,12 +2,28 @@
 
 A single-user calendar with a REST API, MCP server, SSE realtime feed, and a Vue 3 web UI. Written in Rust (axum + rusqlite).
 
-## Quick start
+## Install
+
+Linux / Mac:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/eitaar/yot/main/dist/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/eitaar/yot/main/dist/install.ps1 | iex
+```
+
+This downloads the latest release to `~/.yot/` (or `%APPDATA%\yot\`), adds it to PATH, and runs `yot init`.
+
+### From source
 
 ```bash
 cargo build --release
-./target/release/yot init          # creates ~/.yot/ (or %APPDATA%/yot), generates API key
-./target/release/yot-server        # starts on :4010
+./target/release/yot init
+./target/release/yot-server
 ```
 
 Open `http://localhost:4010`. On first visit you'll be redirected to `/pair`:
@@ -130,13 +146,6 @@ yot revoke <id>                             # revoke a key
 | `MCP_AUTH` | `on` | `off` to skip MCP auth |
 | `YOT_HTTP_URL` | `http://127.0.0.1:$PORT` | Base URL for relay/CLI |
 | `YOT_SSE_RELAY` | `on` | `off` to disable MCP-to-SSE relay |
-
-## Linux install
-
-```bash
-tar xf yot-linux-amd64.tar.gz
-./install.sh    # installs to ~/.yot/, runs init, enables systemd service
-```
 
 ## Architecture
 
