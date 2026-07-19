@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/yot-server
+ExecStart=%h/.yot/yot-server
 Restart=on-failure
 RestartSec=5
 Environment=PORT=4010
+Environment=YOT_DATA_DIR=%h/.yot
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

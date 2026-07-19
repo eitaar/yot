@@ -3,6 +3,7 @@ set -e
 
 REPO="eitaar/yot"
 DATA_DIR="${YOT_DATA_DIR:-}"
+INSTALL_SERVICE=false
 
 detect_data_dir() {
     if [ -n "$DATA_DIR" ]; then return; fi
@@ -90,7 +91,51 @@ add_to_path() {
     export PATH="$DATA_DIR:$PATH"
 }
 
+install_systemd_service() {
+    if [ "$OS" != "linux" ]; then
+        echo "  --service is only supported on Linux"
+        return
+    fi
+
+    SERVICE_DIR="$HOME/.config/systemd/user"
+    mkdir -p "$SERVICE_DIR"
+
+    cat > "$SERVICE_DIR/yot-server.service" <<UNIT
+[Unit]
+Description=yot calendar server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$DATA_DIR/yot-server
+Restart=on-failure
+RestartSec=5
+Environment=PORT=4010
+Environment=YOT_DATA_DIR=$DATA_DIR
+
+[Install]
+WantedBy=default.target
+UNIT
+
+    systemctl --user daemon-reload
+    systemctl --user enable yot-server
+    systemctl --user start yot-server
+
+    echo "  systemd user service enabled and started"
+    echo "  Status: systemctl --user status yot-server"
+    echo "  Logs:   journalctl --user -u yot-server -f"
+}
+
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            --service) INSTALL_SERVICE=true ;;
+        esac
+    done
+}
+
 main() {
+    parse_args "$@"
     detect_data_dir
     detect_platform
 
@@ -105,9 +150,23 @@ main() {
     echo "==> Running yot init"
     "$DATA_DIR/yot" init
 
+    if [ "$INSTALL_SERVICE" = true ]; then
+        echo "==> Installing systemd service"
+        install_systemd_service
+    fi
+
     echo ""
     echo "Done! Start the server with:"
-    echo "  yot-server"
+    if [ "$INSTALL_SERVICE" = true ]; then
+        echo "  (already running as systemd service)"
+    else
+        echo "  yot-server"
+        if [ "$OS" = "linux" ]; then
+            echo ""
+            echo "To run as a background service:"
+            echo "  curl -sSL https://raw.githubusercontent.com/$REPO/main/dist/install.sh | sh -s -- --service"
+        fi
+    fi
 }
 
-main
+main "$@"
