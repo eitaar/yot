@@ -7,23 +7,17 @@ Write-Host "yot installer"
 Write-Host "  Install: $DataDir"
 Write-Host ""
 
-# Get latest version
-Write-Host "==> Fetching latest version"
-$Release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest"
-$Version = $Release.tag_name
-Write-Host "==> Latest version: $Version"
-
-# Download
 $Arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "arm64" }
-$Archive = "yot-$Version-windows-$Arch.zip"
-$Url = "https://github.com/$Repo/releases/download/$Version/$Archive"
+
+# Download latest release directly via redirect (no API call)
+$Url = "https://github.com/$Repo/releases/latest/download/yot-windows-$Arch.zip"
 $TmpDir = Join-Path ([IO.Path]::GetTempPath()) "yot-install"
 
 New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
-$ZipPath = Join-Path $TmpDir $Archive
+$ZipPath = Join-Path $TmpDir "yot.zip"
 
-Write-Host "==> Downloading $Archive"
-Invoke-WebRequest -Uri $Url -OutFile $ZipPath
+Write-Host "==> Downloading from $Url"
+Invoke-WebRequest -Uri $Url -OutFile $ZipPath -MaximumRedirection 5
 
 # Extract and install
 Write-Host "==> Installing to $DataDir"

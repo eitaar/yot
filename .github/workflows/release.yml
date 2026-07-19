@@ -62,7 +62,7 @@ jobs:
           cp target/${{ matrix.target }}/release/yot-mcp staging/
           cp target/${{ matrix.target }}/release/yot staging/
           cp dist/yot-server.service staging/
-          tar czf yot-${{ github.ref_name }}-${{ matrix.name }}.tar.gz -C staging .
+          tar czf yot-${{ matrix.name }}.tar.gz -C staging .
 
       - name: Package (windows)
         if: matrix.ext == 'zip'
@@ -72,13 +72,13 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/yot-server.exe" staging/
           Copy-Item "target/${{ matrix.target }}/release/yot-mcp.exe" staging/
           Copy-Item "target/${{ matrix.target }}/release/yot.exe" staging/
-          Compress-Archive -Path staging/* -DestinationPath "yot-${{ github.ref_name }}-${{ matrix.name }}.zip"
+          Compress-Archive -Path staging/* -DestinationPath "yot-${{ matrix.name }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: yot-${{ matrix.name }}
-          path: yot-${{ github.ref_name }}-${{ matrix.name }}.${{ matrix.ext }}
+          path: yot-${{ matrix.name }}.${{ matrix.ext }}
 
   release:
     needs: build
