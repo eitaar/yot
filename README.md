@@ -2,12 +2,28 @@
 
 A single-user calendar with a REST API, MCP server, SSE realtime feed, and a Vue 3 web UI. Written in Rust (axum + rusqlite).
 
-## Quick start
+## Install
+
+Linux / Mac:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/eitaar/yot/main/dist/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/eitaar/yot/main/dist/install.ps1 | iex
+```
+
+This downloads the latest release to `~/.yot/` (or `%APPDATA%\yot\`), adds it to PATH, and runs `yot init`.
+
+### From source
 
 ```bash
 cargo build --release
-./target/release/yot init          # creates ~/.yot/ (or %APPDATA%/yot), generates API key
-./target/release/yot-server        # starts on :4010
+./target/release/yot init
+./target/release/yot-server
 ```
 
 Open `http://localhost:4010`. On first visit you'll be redirected to `/pair`:
@@ -34,7 +50,7 @@ All data lives in one directory, created by `yot init`:
 | Windows  | `%APPDATA%\yot\` |
 | Linux/Mac | `~/.yot/` |
 
-Contents: `data.db`, `img/`, `.env`. Override with `YOT_DATA_DIR`.
+Contents: `yot-server`, `yot-mcp`, `yot`, `data.db`, `img/`, `.env`. Override with `YOT_DATA_DIR`.
 
 ## Authentication
 
@@ -123,20 +139,13 @@ yot revoke <id>                             # revoke a key
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `4010` | HTTP listen port |
-| `YOT_DATA_DIR` | `%APPDATA%/yot` or `~/.yot` | Data directory |
+| `YOT_DATA_DIR` | `%APPDATA%/yot` or `~/.yot` | Binaries + data directory |
 | `DB_PATH` | `<data_dir>/data.db` | SQLite path |
 | `IMG_DIR` | `<data_dir>/img` | Image storage |
 | `YOT_API_KEY` | | API key for CLI/MCP |
 | `MCP_AUTH` | `on` | `off` to skip MCP auth |
 | `YOT_HTTP_URL` | `http://127.0.0.1:$PORT` | Base URL for relay/CLI |
 | `YOT_SSE_RELAY` | `on` | `off` to disable MCP-to-SSE relay |
-
-## Linux install
-
-```bash
-tar xf yot-linux-amd64.tar.gz
-sudo ./install.sh    # copies binaries, runs init, enables systemd service
-```
 
 ## Architecture
 
