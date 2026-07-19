@@ -8,10 +8,6 @@
 		"web:build": "npm --prefix web run build",
 		"start": "target/release/yot-server",
 		"mcp": "target/release/yot-mcp",
-		"test": "cargo test",
-		"format": "biome check --write ."
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.4.16"
+		"test": "cargo test"
 	}
 }
