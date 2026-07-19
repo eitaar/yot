@@ -9,14 +9,22 @@ pub mod uploads;
 
 use std::sync::Arc;
 use axum::{Router, middleware};
+use axum::extract::Request;
+use axum::response::{IntoResponse, Response};
+use axum::http::{StatusCode, header};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
-use tower_http::services::ServeDir;
+use rust_embed::Embed;
 use crate::auth::middleware::auth_middleware;
 use crate::auth::pairing::PairingService;
 use crate::auth::rate_limit::RateLimiter;
 use crate::core::event_bus::EventBus;
 use crate::db::Db;
+
+#[derive(Embed)]
+#[folder = "web/dist/"]
+#[prefix = ""]
+struct WebAssets;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -53,19 +61,31 @@ pub fn build_router(state: AppState) -> Router {
         .merge(protected_routes)
         .with_state(state.clone());
 
-    let spa_dir = std::path::PathBuf::from("web/dist");
-    let app = Router::new()
+    Router::new()
         .nest("/api", api)
+        .fallback(serve_embedded_spa)
         .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+}
 
-    if spa_dir.exists() {
-        let index_html = spa_dir.join("index.html");
-        let serve_dir = ServeDir::new(&spa_dir)
-            .not_found_service(tower_http::services::ServeFile::new(&index_html));
-        app.fallback_service(serve_dir)
+async fn serve_embedded_spa(req: Request) -> Response {
+    let path = req.uri().path().trim_start_matches('/');
+
+    if let Some(file) = WebAssets::get(path) {
+        let mime = mime_guess::from_path(path).first_or_octet_stream();
+        (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, mime.as_ref())],
+            file.data,
+        ).into_response()
+    } else if let Some(index) = WebAssets::get("index.html") {
+        (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "text/html")],
+            index.data,
+        ).into_response()
     } else {
-        app
+        StatusCode::NOT_FOUND.into_response()
     }
 }
 
@@ -80,16 +100,16 @@ fn meta_routes() -> Router<AppState> {
         .route("/ui", get(serve_swagger_ui))
 }
 
-async fn serve_openapi_doc() -> impl axum::response::IntoResponse {
+async fn serve_openapi_doc() -> impl IntoResponse {
     (
-        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        [(header::CONTENT_TYPE, "application/json")],
         include_str!("../../static/openapi.json"),
     )
 }
 
-async fn serve_swagger_ui() -> impl axum::response::IntoResponse {
+async fn serve_swagger_ui() -> impl IntoResponse {
     (
-        [(axum::http::header::CONTENT_TYPE, "text/html")],
+        [(header::CONTENT_TYPE, "text/html")],
         include_str!("../../static/swagger.html"),
     )
 }
