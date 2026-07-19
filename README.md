@@ -34,7 +34,7 @@ All data lives in one directory, created by `yot init`:
 | Windows  | `%APPDATA%\yot\` |
 | Linux/Mac | `~/.yot/` |
 
-Contents: `data.db`, `img/`, `.env`. Override with `YOT_DATA_DIR`.
+Contents: `yot-server`, `yot-mcp`, `yot`, `data.db`, `img/`, `.env`. Override with `YOT_DATA_DIR`.
 
 ## Authentication
 
@@ -123,7 +123,7 @@ yot revoke <id>                             # revoke a key
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `4010` | HTTP listen port |
-| `YOT_DATA_DIR` | `%APPDATA%/yot` or `~/.yot` | Data directory |
+| `YOT_DATA_DIR` | `%APPDATA%/yot` or `~/.yot` | Binaries + data directory |
 | `DB_PATH` | `<data_dir>/data.db` | SQLite path |
 | `IMG_DIR` | `<data_dir>/img` | Image storage |
 | `YOT_API_KEY` | | API key for CLI/MCP |
@@ -135,7 +135,7 @@ yot revoke <id>                             # revoke a key
 
 ```bash
 tar xf yot-linux-amd64.tar.gz
-sudo ./install.sh    # copies binaries, runs init, enables systemd service
+./install.sh    # installs to ~/.yot/, runs init, enables systemd service
 ```
 
 ## Architecture
