@@ -18,6 +18,7 @@ node_modules/
 
 # env
 .env
+.env.test
 .env.production
 
 # logs
@@ -33,7 +34,7 @@ lerna-debug.log*
 .DS_Store
 
 # build output
-dist/
+/target
 web/dev-dist/
 
 # sqlite database

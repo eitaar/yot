@@ -2,13 +2,13 @@
 	"name": "yot",
 	"type": "module",
 	"scripts": {
-		"dev": "cd server-rs && cargo run --bin yot-server",
-		"build": "cd server-rs && cargo build --release && npm --prefix web run build",
+		"dev": "cargo run --bin yot-server",
+		"build": "cargo build --release && npm --prefix web run build",
 		"web:dev": "npm --prefix web run dev",
 		"web:build": "npm --prefix web run build",
-		"start": "server-rs/target/release/yot-server",
-		"mcp": "server-rs/target/release/yot-mcp",
-		"test": "cd server-rs && cargo test",
+		"start": "target/release/yot-server",
+		"mcp": "target/release/yot-mcp",
+		"test": "cargo test",
 		"format": "biome check --write ."
 	},
 	"devDependencies": {
