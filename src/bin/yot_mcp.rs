@@ -40,17 +40,7 @@ fn main() {
 
     let bus = EventBus::new();
 
-    if config.yot_sse_relay {
-        if let Some(ref _api_key) = config.yot_api_key {
-            let base_url = config.http_base_url();
-            let url = format!("{}/api/internal/events", base_url.trim_end_matches('/'));
-            eprintln!("[relay] would forward changes to {url} (relay requires async runtime)");
-        } else {
-            eprintln!("[relay] disabled (no key)");
-        }
-    } else {
-        eprintln!("[relay] disabled (YOT_SSE_RELAY=off)");
-    }
+    // Relay logging removed — stderr output can interfere with MCP clients
 
     let server = McpServer {
         conn: Mutex::new(conn),

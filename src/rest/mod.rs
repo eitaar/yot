@@ -3,6 +3,7 @@ pub mod calendars;
 pub mod events;
 pub mod import;
 pub mod internal;
+pub mod mcp;
 pub mod stream;
 pub mod tags;
 pub mod uploads;
@@ -20,6 +21,7 @@ use crate::auth::pairing::PairingService;
 use crate::auth::rate_limit::RateLimiter;
 use crate::core::event_bus::EventBus;
 use crate::db::Db;
+use crate::mcp::server::McpServer;
 
 #[derive(Embed)]
 #[folder = "web/dist/"]
@@ -32,6 +34,7 @@ pub struct AppState {
     pub bus: EventBus,
     pub pairing: Arc<PairingService>,
     pub rate_limiter: Arc<RateLimiter>,
+    pub mcp: Arc<McpServer>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -48,6 +51,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(stream::routes())
         .merge(internal::routes())
         .merge(auth::protected_routes())
+        .route("/mcp", axum::routing::post(mcp::handle_mcp))
         .layer(middleware::from_fn({
             let db = state.db.clone();
             move |req, next| {

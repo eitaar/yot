@@ -1,10 +1,11 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use yot_server::config::Config;
 use yot_server::core::event_bus::EventBus;
 use yot_server::db::Db;
 use yot_server::auth::pairing::PairingService;
 use yot_server::auth::rate_limit::RateLimiter;
+use yot_server::mcp::server::McpServer;
 use yot_server::rest::{self, AppState};
 
 #[tokio::main]
@@ -23,7 +24,16 @@ async fn main() {
     let pairing = Arc::new(PairingService::new());
     let rate_limiter = Arc::new(RateLimiter::new());
 
-    let state = AppState { db, bus, pairing, rate_limiter };
+    let mcp_conn = rusqlite::Connection::open(&config.db_path)
+        .expect("Failed to open MCP database connection");
+    yot_server::db::schema::initialize(&mcp_conn).unwrap();
+    let mcp = Arc::new(McpServer {
+        conn: Mutex::new(mcp_conn),
+        scope: "write".to_string(),
+        bus: bus.clone(),
+    });
+
+    let state = AppState { db, bus, pairing, rate_limiter, mcp };
     let app = rest::build_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

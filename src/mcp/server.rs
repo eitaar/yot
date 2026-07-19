@@ -19,22 +19,24 @@ pub struct McpServer {
 }
 
 #[derive(Deserialize)]
-struct JsonRpcRequest {
+pub struct JsonRpcRequest {
     #[allow(dead_code)]
     jsonrpc: String,
-    id: Option<Value>,
-    method: String,
-    params: Option<Value>,
+    #[serde(default)]
+    pub id: Option<Value>,
+    pub method: String,
+    #[serde(default)]
+    pub params: Option<Value>,
 }
 
 #[derive(Serialize)]
-struct JsonRpcResponse {
+pub struct JsonRpcResponse {
     jsonrpc: String,
-    id: Value,
+    pub id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<Value>,
+    pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<Value>,
+    pub error: Option<Value>,
 }
 
 impl McpServer {
@@ -66,7 +68,7 @@ impl McpServer {
         }
     }
 
-    fn handle_request(&self, req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
+    pub fn handle_request(&self, req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
         let id = req.id.clone()?;
 
         let result = match req.method.as_str() {
