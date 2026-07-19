@@ -4,6 +4,7 @@ pub mod events;
 pub mod import;
 pub mod internal;
 pub mod mcp;
+pub mod oauth;
 pub mod stream;
 pub mod tags;
 pub mod uploads;
@@ -65,8 +66,14 @@ pub fn build_router(state: AppState) -> Router {
         .merge(protected_routes)
         .with_state(state.clone());
 
+    let oauth_routes = Router::new()
+        .route("/oauth/token", axum::routing::post(oauth::token))
+        .route("/.well-known/oauth-protected-resource", axum::routing::get(oauth::protected_resource_metadata))
+        .route("/.well-known/oauth-authorization-server", axum::routing::get(oauth::authorization_server_metadata));
+
     Router::new()
         .nest("/api", api)
+        .merge(oauth_routes)
         .fallback(serve_embedded_spa)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
