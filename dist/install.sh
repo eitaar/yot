@@ -9,8 +9,6 @@ detect_data_dir() {
     case "$(uname -s)" in
         MINGW*|MSYS*|CYGWIN*)
             DATA_DIR="${APPDATA}/yot" ;;
-        Darwin)
-            DATA_DIR="$HOME/.yot" ;;
         *)
             DATA_DIR="$HOME/.yot" ;;
     esac
@@ -34,18 +32,12 @@ detect_platform() {
     esac
 }
 
-get_latest_version() {
-    curl -sSL "https://api.github.com/repos/$REPO/releases/latest" \
-        | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"//;s/".*//'
-}
-
 download_and_install() {
-    VERSION="$1"
     EXT="tar.gz"
     if [ "$OS" = "windows" ]; then EXT="zip"; fi
 
-    ARCHIVE="yot-${VERSION}-${OS}-${ARCH}.${EXT}"
-    URL="https://github.com/$REPO/releases/download/${VERSION}/${ARCHIVE}"
+    ARCHIVE="yot-${OS}-${ARCH}.${EXT}"
+    URL="https://github.com/$REPO/releases/latest/download/$ARCHIVE"
 
     echo "==> Downloading $ARCHIVE"
     TMPDIR="$(mktemp -d)"
@@ -107,14 +99,7 @@ main() {
     echo "  Install:  ${DATA_DIR}"
     echo ""
 
-    VERSION="$(get_latest_version)"
-    if [ -z "$VERSION" ]; then
-        echo "Failed to fetch latest version. Check your internet connection."
-        exit 1
-    fi
-    echo "==> Latest version: $VERSION"
-
-    download_and_install "$VERSION"
+    download_and_install
     add_to_path
 
     echo "==> Running yot init"
