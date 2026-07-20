@@ -12,6 +12,7 @@ export type Event = {
 	calendar_id: string;
 	title: string;
 	description: string | null;
+	context: string | null;
 	location: string | null;
 	start_at: string;
 	end_at: string;
@@ -51,6 +52,7 @@ export type EventUpdate = Partial<{
 	calendar_id: string;
 	title: string;
 	description: string | null;
+	context: string | null;
 	location: string | null;
 	start_at: string;
 	end_at: string;
@@ -148,6 +150,7 @@ export const api = {
 		all_day?: boolean;
 		location?: string;
 		description?: string;
+		context?: string;
 		url?: string;
 		image_path?: string;
 	}) =>

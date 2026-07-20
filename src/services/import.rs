@@ -62,11 +62,11 @@ pub fn import_ics(conn: &Connection, calendar_id: &str, data: &[u8]) -> Result<I
 
         let id = new_id();
         conn.execute(
-            "INSERT INTO events (id, calendar_id, title, description, location, \
+            "INSERT INTO events (id, calendar_id, title, description, context, location, \
              start_at, end_at, all_day, source_uid, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
-                id, calendar_id, title, vevent.description, vevent.location,
+                id, calendar_id, title, vevent.description, None::<String>, vevent.location,
                 dtstart, dtend, all_day as i64, vevent.uid, now, now,
             ],
         )?;

@@ -46,6 +46,7 @@ export function useEvents() {
 			calendar_id: input.calendar_id,
 			title: input.title,
 			description: input.description ?? null,
+			context: input.context ?? null,
 			location: input.location ?? null,
 			start_at: input.start_at,
 			end_at: input.end_at,

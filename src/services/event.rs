@@ -8,7 +8,7 @@ use crate::services::calendar;
 
 pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppError> {
     let mut sql = String::from(
-        "SELECT e.id, e.calendar_id, e.title, e.description, e.location, \
+        "SELECT e.id, e.calendar_id, e.title, e.description, e.context, e.location, \
          e.start_at, e.end_at, e.all_day, e.image_path, e.url, e.source_uid, \
          e.created_at, e.updated_at FROM events e",
     );
@@ -61,15 +61,16 @@ pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppErro
             calendar_id: row.get(1)?,
             title: row.get(2)?,
             description: row.get(3)?,
-            location: row.get(4)?,
-            start_at: row.get(5)?,
-            end_at: row.get(6)?,
-            all_day: row.get::<_, i64>(7)? != 0,
-            image_path: row.get(8)?,
-            url: row.get(9)?,
-            source_uid: row.get(10)?,
-            created_at: row.get(11)?,
-            updated_at: row.get(12)?,
+            context: row.get(4)?,
+            location: row.get(5)?,
+            start_at: row.get(6)?,
+            end_at: row.get(7)?,
+            all_day: row.get::<_, i64>(8)? != 0,
+            image_path: row.get(9)?,
+            url: row.get(10)?,
+            source_uid: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     })?;
 
@@ -95,7 +96,7 @@ pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppErro
 pub fn get(conn: &Connection, id: &str) -> Result<Event, AppError> {
     let row = conn
         .query_row(
-            "SELECT id, calendar_id, title, description, location, start_at, end_at, \
+            "SELECT id, calendar_id, title, description, context, location, start_at, end_at, \
              all_day, image_path, url, source_uid, created_at, updated_at \
              FROM events WHERE id = ?",
             [id],
@@ -105,15 +106,16 @@ pub fn get(conn: &Connection, id: &str) -> Result<Event, AppError> {
                     calendar_id: row.get(1)?,
                     title: row.get(2)?,
                     description: row.get(3)?,
-                    location: row.get(4)?,
-                    start_at: row.get(5)?,
-                    end_at: row.get(6)?,
-                    all_day: row.get::<_, i64>(7)? != 0,
-                    image_path: row.get(8)?,
-                    url: row.get(9)?,
-                    source_uid: row.get(10)?,
-                    created_at: row.get(11)?,
-                    updated_at: row.get(12)?,
+                    context: row.get(4)?,
+                    location: row.get(5)?,
+                    start_at: row.get(6)?,
+                    end_at: row.get(7)?,
+                    all_day: row.get::<_, i64>(8)? != 0,
+                    image_path: row.get(9)?,
+                    url: row.get(10)?,
+                    source_uid: row.get(11)?,
+                    created_at: row.get(12)?,
+                    updated_at: row.get(13)?,
                 })
             },
         )
@@ -142,14 +144,15 @@ pub fn create(conn: &Connection, input: CreateEventInput) -> Result<Event, AppEr
     let id = new_id();
     let now = now_iso();
     conn.execute(
-        "INSERT INTO events (id, calendar_id, title, description, location, start_at, end_at, \
+        "INSERT INTO events (id, calendar_id, title, description, context, location, start_at, end_at, \
          all_day, image_path, url, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             id,
             input.calendar_id,
             input.title,
             input.description,
+            input.context,
             input.location,
             input.start_at,
             input.end_at,
@@ -187,6 +190,10 @@ pub fn update(conn: &Connection, id: &str, input: UpdateEventInput) -> Result<Ev
         Some(v) => v,
         None => existing.description,
     };
+    let context = match input.context {
+        Some(v) => v,
+        None => existing.context,
+    };
     let location = match input.location {
         Some(v) => v,
         None => existing.location,
@@ -202,10 +209,10 @@ pub fn update(conn: &Connection, id: &str, input: UpdateEventInput) -> Result<Ev
     };
 
     conn.execute(
-        "UPDATE events SET calendar_id=?, title=?, description=?, location=?, \
+        "UPDATE events SET calendar_id=?, title=?, description=?, context=?, location=?, \
          start_at=?, end_at=?, all_day=?, image_path=?, url=?, updated_at=? WHERE id=?",
         params![
-            calendar_id, title, description, location, start_at, end_at,
+            calendar_id, title, description, context, location, start_at, end_at,
             all_day as i64, image_path, url, now, id,
         ],
     )?;
@@ -323,6 +330,7 @@ struct EventRow {
     calendar_id: String,
     title: String,
     description: Option<String>,
+    context: Option<String>,
     location: Option<String>,
     start_at: String,
     end_at: String,
@@ -341,6 +349,7 @@ impl EventRow {
             calendar_id: self.calendar_id,
             title: self.title,
             description: self.description,
+            context: self.context,
             location: self.location,
             start_at: self.start_at,
             end_at: self.end_at,

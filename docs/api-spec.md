@@ -98,6 +98,7 @@ OpenAPI ドキュメントは稼働中のサーバーの `GET /api/doc`(JSON)と
   "calendar_id": "string",
   "title": "Team sync",
   "description": "string | null",
+  "context": "string | null",       // AI 向けの補足情報（駐車場、料金、評判など自由形式）
   "location": "string | null",
   "start_at": "ISO8601",
   "end_at": "ISO8601",
@@ -212,9 +213,9 @@ Cookie の API キーを失効させ、Cookie を削除する。
 | `limit` | int 1–500 | 既定 50 |
 | `offset` | int ≥0 | 既定 0 |
 
-- **CreateEvent**: `{ calendar_id: string, title: string, start_at: ISO8601, end_at: ISO8601, all_day?: boolean(既定 false), description?, location?, url?, image_path?: string }`
+- **CreateEvent**: `{ calendar_id: string, title: string, start_at: ISO8601, end_at: ISO8601, all_day?: boolean(既定 false), description?, context?, location?, url?, image_path?: string }`
 - **UpdateEvent**: 全フィールド任意。nullable なフィールド
-  (`description`, `location`, `url`, `image_path`)は `null` でクリア。
+  (`description`, `context`, `location`, `url`, `image_path`)は `null` でクリア。
   ※フロントの `EventUpdate` 型は `tags: string[]` も送るが、REST の
   `UpdateEventSchema` には `tags` がなく無視される(タグ操作は下記の専用ルートを使う)。
 

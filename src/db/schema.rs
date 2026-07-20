@@ -72,6 +72,7 @@ pub fn initialize(conn: &Connection) -> Result<(), AppError> {
     add_column_if_missing(conn, "events", "image_path", "TEXT")?;
     add_column_if_missing(conn, "events", "url", "TEXT")?;
     add_column_if_missing(conn, "events", "source_uid", "TEXT")?;
+    add_column_if_missing(conn, "events", "context", "TEXT")?;
 
     Ok(())
 }

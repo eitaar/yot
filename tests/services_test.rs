@@ -179,6 +179,7 @@ fn make_event(conn: &rusqlite::Connection, cal_id: &str, title: &str, start: &st
         end_at: end.to_string(),
         all_day: false,
         description: None,
+        context: None,
         location: None,
         url: None,
         image_path: None,
@@ -208,7 +209,7 @@ fn event_create_rejects_end_before_start() {
         start_at: "2026-05-29T11:00:00.000Z".into(),
         end_at: "2026-05-29T10:00:00.000Z".into(),
         all_day: false,
-        description: None, location: None, url: None, image_path: None,
+        description: None, context: None, location: None, url: None, image_path: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -222,7 +223,7 @@ fn event_create_rejects_unknown_calendar() {
         start_at: "2026-05-29T10:00:00.000Z".into(),
         end_at: "2026-05-29T11:00:00.000Z".into(),
         all_day: false,
-        description: None, location: None, url: None, image_path: None,
+        description: None, context: None, location: None, url: None, image_path: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -243,7 +244,7 @@ fn event_update_changes_title() {
     let ev = make_event(&conn, &cal_id, "Old", "2026-05-29T10:00:00.000Z", "2026-05-29T11:00:00.000Z");
     let updated = event::update(&conn, &ev.id, UpdateEventInput {
         calendar_id: None, title: Some("New".into()), start_at: None, end_at: None,
-        all_day: None, description: None, location: None, url: None, image_path: None,
+        all_day: None, description: None, context: None, location: None, url: None, image_path: None,
     }).unwrap();
     assert_eq!(updated.title, "New");
 }
@@ -256,7 +257,7 @@ fn event_update_rejects_end_before_start() {
     let err = event::update(&conn, &ev.id, UpdateEventInput {
         calendar_id: None, title: None, start_at: None,
         end_at: Some("2026-05-29T09:00:00.000Z".into()),
-        all_day: None, description: None, location: None, url: None, image_path: None,
+        all_day: None, description: None, context: None, location: None, url: None, image_path: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -388,7 +389,7 @@ fn event_url_and_image_path_roundtrip() {
         start_at: "2026-05-29T10:00:00.000Z".into(),
         end_at: "2026-05-29T11:00:00.000Z".into(),
         all_day: false,
-        description: None, location: None,
+        description: None, context: None, location: None,
         url: Some("https://example.com".into()),
         image_path: Some("11111111-1111-4111-8111-111111111111.png".into()),
     }).unwrap();
@@ -411,13 +412,13 @@ fn event_update_clears_url_with_null() {
         start_at: "2026-05-29T10:00:00.000Z".into(),
         end_at: "2026-05-29T11:00:00.000Z".into(),
         all_day: false,
-        description: None, location: None,
+        description: None, context: None, location: None,
         url: Some("https://old.test".into()),
         image_path: None,
     }).unwrap();
     let updated = event::update(&conn, &ev.id, UpdateEventInput {
         calendar_id: None, title: None, start_at: None, end_at: None, all_day: None,
-        description: None, location: None,
+        description: None, context: None, location: None,
         url: Some(None),
         image_path: Some(Some("a.png".into())),
     }).unwrap();

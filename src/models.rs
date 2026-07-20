@@ -32,6 +32,7 @@ pub struct Event {
     pub calendar_id: String,
     pub title: String,
     pub description: Option<String>,
+    pub context: Option<String>,
     pub location: Option<String>,
     pub start_at: String,
     pub end_at: String,
@@ -54,6 +55,7 @@ pub struct CreateEventInput {
     #[serde(default)]
     pub all_day: bool,
     pub description: Option<String>,
+    pub context: Option<String>,
     pub location: Option<String>,
     pub url: Option<String>,
     pub image_path: Option<String>,
@@ -72,6 +74,8 @@ pub struct UpdateEventInput {
     pub all_day: Option<bool>,
     #[serde(default, deserialize_with = "deserialize_double_option")]
     pub description: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub context: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_double_option")]
     pub location: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_double_option")]
