@@ -93,7 +93,7 @@ impl McpServer {
             },
             "serverInfo": {
                 "name": "yot-calendar",
-                "version": "1.0.0"
+                "version": env!("CARGO_PKG_VERSION")
             }
         }))
     }

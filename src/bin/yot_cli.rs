@@ -6,7 +6,7 @@ use yot_server::config::Config;
 use yot_server::db::schema;
 
 #[derive(Parser)]
-#[command(name = "yot", version = "1.0.0", about = "yot calendar CLI")]
+#[command(name = "yot", version = env!("CARGO_PKG_VERSION"), about = "yot calendar CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

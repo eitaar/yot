@@ -19,6 +19,7 @@ defineProps<{
 }>();
 
 const { isOpen } = useSidebar();
+const version = __APP_VERSION__;
 </script>
 
 <template>
@@ -40,6 +41,7 @@ const { isOpen } = useSidebar();
 			>
 				{{ connected ? "Live" : "Offline" }}
 			</span>
+			<span class="badge badge-ghost badge-sm">v{{ version }}</span>
 			<span v-if="syncing" class="badge badge-info badge-sm gap-1">
 				Syncing…
 			</span>

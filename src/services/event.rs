@@ -311,8 +311,10 @@ fn validate_date_range(start: &str, end: &str) -> Result<(), AppError> {
 }
 
 fn try_delete_image(filename: &str) {
-    let img_dir = std::env::var("IMG_DIR").unwrap_or_else(|_| "data/img".to_string());
-    let path = std::path::Path::new(&img_dir).join(filename);
+    let img_dir = std::env::var("IMG_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| crate::config::default_data_dir().join("img"));
+    let path = img_dir.join(filename);
     let _ = std::fs::remove_file(path);
 }
 

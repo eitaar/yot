@@ -1,6 +1,6 @@
 [package]
 name = "yot-server"
-version = "1.0.0"
+version = "1.2.3"
 edition = "2024"
 
 [[bin]]

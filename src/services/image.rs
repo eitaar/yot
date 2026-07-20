@@ -18,8 +18,9 @@ fn extension_for_mime(mime: &str) -> Option<&'static str> {
 }
 
 pub fn img_dir() -> PathBuf {
-    let dir = std::env::var("IMG_DIR").unwrap_or_else(|_| "data/img".to_string());
-    PathBuf::from(dir)
+    std::env::var("IMG_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| crate::config::default_data_dir().join("img"))
 }
 
 pub fn ensure_img_dir() -> Result<PathBuf, AppError> {

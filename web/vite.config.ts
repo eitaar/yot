@@ -1,10 +1,20 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+function cargoVersion(): string {
+	const cargo = readFileSync(new URL("../Cargo.toml", import.meta.url), "utf-8");
+	const m = cargo.match(/^version\s*=\s*"([^"]+)"/m);
+	return m ? m[1] : "0.0.0";
+}
+
 export default defineConfig(({ mode }) => ({
+	define: {
+		__APP_VERSION__: JSON.stringify(cargoVersion()),
+	},
 	plugins: [
 		vue(),
 		tailwindcss(),
