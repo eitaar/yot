@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
 				navigateFallback: "/index.html",
 				// API + SSE + image endpoints are backend routes, not SPA routes — never
 				// answer them with the app shell. (These are same-origin under /api/ in prod.)
-				navigateFallbackDenylist: [/^\/api\//],
+				navigateFallbackDenylist: [/^\/api\//, /^\/authorize/, /^\/oauth\//, /^\/.well-known\//],
 				runtimeCaching: [
 					{
 						urlPattern: /\.woff2?$/,
