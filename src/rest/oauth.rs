@@ -15,11 +15,16 @@ use crate::auth::apikey::hash_key;
 
 const ALLOWED_REDIRECT_PREFIXES: &[&str] = &[
     "https://claude.ai/",
-    "http://localhost",
-    "http://127.0.0.1",
+    "http://localhost/",
+    "http://localhost:",
+    "http://127.0.0.1/",
+    "http://127.0.0.1:",
 ];
 
 fn is_redirect_allowed(uri: &str) -> bool {
+    if uri.contains('@') || uri.contains('\\') {
+        return false;
+    }
     ALLOWED_REDIRECT_PREFIXES.iter().any(|p| uri.starts_with(p))
 }
 
