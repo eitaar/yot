@@ -222,7 +222,7 @@ pub async fn authorize_submit(
     redirect_url.query_pairs_mut()
         .append_pair("code", &code)
         .append_pair("state", &form.state);
-    Redirect::temporary(redirect_url.as_str()).into_response()
+    Redirect::to(redirect_url.as_str()).into_response()
 }
 
 #[derive(Deserialize)]
