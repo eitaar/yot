@@ -13,19 +13,16 @@ use std::time::{Duration, Instant};
 use super::AppState;
 use crate::auth::apikey::hash_key;
 
-const ALLOWED_REDIRECT_PREFIXES: &[&str] = &[
-    "https://claude.ai/",
-    "http://localhost/",
-    "http://localhost:",
-    "http://127.0.0.1/",
-    "http://127.0.0.1:",
-];
-
 fn is_redirect_allowed(uri: &str) -> bool {
-    if uri.contains('@') || uri.contains('\\') {
+    let Ok(u) = url::Url::parse(uri) else { return false };
+    if !u.username().is_empty() || u.password().is_some() {
         return false;
     }
-    ALLOWED_REDIRECT_PREFIXES.iter().any(|p| uri.starts_with(p))
+    match (u.scheme(), u.host_str()) {
+        ("https", Some("claude.ai")) => true,
+        ("http", Some(h)) if h == "localhost" || h == "127.0.0.1" || h == "[::1]" => true,
+        _ => false,
+    }
 }
 
 fn html_escape(s: &str) -> String {
@@ -221,8 +218,11 @@ pub async fn authorize_submit(
         form.redirect_uri.clone(),
     );
 
-    let redirect = format!("{}?code={}&state={}", form.redirect_uri, code, form.state);
-    Redirect::temporary(&redirect).into_response()
+    let mut redirect_url = url::Url::parse(&form.redirect_uri).unwrap();
+    redirect_url.query_pairs_mut()
+        .append_pair("code", &code)
+        .append_pair("state", &form.state);
+    Redirect::temporary(redirect_url.as_str()).into_response()
 }
 
 #[derive(Deserialize)]
