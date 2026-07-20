@@ -7,6 +7,7 @@ use yot_server::auth::pairing::PairingService;
 use yot_server::auth::rate_limit::RateLimiter;
 use yot_server::mcp::server::McpServer;
 use yot_server::rest::{self, AppState};
+use yot_server::rest::oauth::AuthCodeStore;
 
 #[tokio::main]
 async fn main() {
@@ -33,7 +34,8 @@ async fn main() {
         bus: bus.clone(),
     });
 
-    let state = AppState { db, bus, pairing, rate_limiter, mcp };
+    let auth_codes = Arc::new(AuthCodeStore::new());
+    let state = AppState { db, bus, pairing, rate_limiter, mcp, auth_codes };
     let app = rest::build_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

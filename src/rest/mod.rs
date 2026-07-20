@@ -23,6 +23,7 @@ use crate::auth::rate_limit::RateLimiter;
 use crate::core::event_bus::EventBus;
 use crate::db::Db;
 use crate::mcp::server::McpServer;
+use crate::rest::oauth::AuthCodeStore;
 
 #[derive(Embed)]
 #[folder = "web/dist/"]
@@ -36,6 +37,7 @@ pub struct AppState {
     pub pairing: Arc<PairingService>,
     pub rate_limiter: Arc<RateLimiter>,
     pub mcp: Arc<McpServer>,
+    pub auth_codes: Arc<AuthCodeStore>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -68,8 +70,11 @@ pub fn build_router(state: AppState) -> Router {
 
     let oauth_routes = Router::new()
         .route("/oauth/token", axum::routing::post(oauth::token))
+        .route("/oauth/register", axum::routing::post(oauth::register))
+        .route("/authorize", axum::routing::get(oauth::authorize_page).post(oauth::authorize_submit))
         .route("/.well-known/oauth-protected-resource", axum::routing::get(oauth::protected_resource_metadata))
-        .route("/.well-known/oauth-authorization-server", axum::routing::get(oauth::authorization_server_metadata));
+        .route("/.well-known/oauth-authorization-server", axum::routing::get(oauth::authorization_server_metadata))
+        .with_state(state.clone());
 
     Router::new()
         .nest("/api", api)
