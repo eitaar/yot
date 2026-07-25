@@ -150,19 +150,31 @@ OpenAPI ドキュメントは稼働中のサーバーの `GET /api/doc`(JSON)と
 
 #### `POST /auth/pair` (公開)
 
-PIN を Cookie セッションに引き換える。Web フロントのログイン手段。
+PIN を API キーに引き換える。Web フロントとネイティブクライアント両方のログイン手段。
 
-- ボディ: `{ "pin": "string" }`
-- 成功 `200`: `{ "ok": true, "scope": "read" | "write" }`
+- ボディ:
+  ```jsonc
+  {
+    "pin": "string",
+    "client": "web" | "native",  // 省略時 "web"
+    "device_name": "string"      // 任意。キー名として記録(64 文字まで)
+  }
+  ```
+- 成功 `200`(`client` 省略時・`"web"`): `{ "ok": true, "scope": "read" | "write" }`
   - `Set-Cookie: yot_session=<key>; HttpOnly; SameSite=Strict; Path=/; Max-Age=34560000`
     (HTTPS 接続時のみ `Secure` 付与)
+- 成功 `200`(`client: "native"`): `{ "ok": true, "scope": "read" | "write", "key": "cal_..." }`
+  - Cookie は発行しない。クライアントは `key` を保存し `Authorization: Bearer` で送る
+- `device_name` 省略時のキー名は `client` に応じて `web` / `native`
 - 失敗: `401`(PIN 無効/期限切れ)、`429`(IP ごとのレート制限超過)
 
 #### `POST /auth/logout` (公開)
 
-Cookie の API キーを失効させ、Cookie を削除する。
+提示された API キーを失効させ、Cookie を削除する。
+キーは `Authorization` ヘッダー・`X-Api-Key`・`yot_session` Cookie のいずれからでも受け付ける
+(`?key=` クエリは対象外)。
 
-- 成功 `200`: `{ "ok": true }`(Cookie がなくても 200)
+- 成功 `200`: `{ "ok": true }`(キーが提示されなくても 200)
 
 #### `POST /auth/pin` (要認証)
 
