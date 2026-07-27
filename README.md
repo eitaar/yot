@@ -70,6 +70,29 @@ Scopes: `read` keys allow GET only; `write` keys allow everything.
 2. Enter it at `/pair` to get a session cookie
 3. `POST /api/auth/logout` revokes and clears the cookie
 
+### PIN pairing (native clients)
+
+Apps without a cookie jar pair the same way, but get the key in the response body:
+
+```bash
+curl -X POST https://your-server/api/auth/pair \
+  -H 'content-type: application/json' \
+  -d '{"pin":"123456","client":"native","device_name":"iPhone 15"}'
+# => {"ok":true,"scope":"write","key":"cal_xxxxxxxx"}
+```
+
+`device_name` shows up in `yot key list`, so each device can be revoked individually.
+
+Recommendations for native clients:
+
+- Store the key in the OS secure storage (iOS Keychain, Android Keystore) — not in plain preferences.
+- Send it as `Authorization: Bearer` on **every** request, including SSE (`/api/stream`) and images.
+  The `?key=` query param exists for browser `EventSource`/`<img>` only; query strings leak into
+  server logs and proxies, so native clients should never use it.
+- Serve the API over HTTPS when connecting from outside localhost — the PIN and the key are both
+  bearer secrets in transit.
+- `POST /api/auth/logout` with the `Authorization` header revokes that device's key.
+
 ## REST API
 
 Base path `/api`. Interactive docs at `/api/ui`, OpenAPI spec at `/api/doc`.
