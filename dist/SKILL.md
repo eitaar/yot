@@ -1,14 +1,28 @@
+---
+name: yot
+description: >
+  Best practices for creating and managing calendar events with Yot. Use this skill
+  whenever interacting with Yot calendar tools — creating events, updating events,
+  importing ICS files, managing tags, setting reminders, or enriching events with
+  context. Also trigger when the user asks to add something to their calendar, schedule
+  something, set a reminder, or plan an itinerary that involves calendar entries.
+  Even casual phrasing like "remind me about X", "put this on my calendar", or
+  "schedule Y" should trigger this skill if Yot tools are available.
+---
+
 # yot — Tips for AI Agents
 
 ## Event anatomy: title / description / context
 
 These three fields serve different audiences. Get them right and the calendar becomes useful for both the owner and any AI that reads it later.
 
+**Don't duplicate across fields.** The event object already has `start_at`, `end_at`, `url`, and `location` — never repeat those in title, description, or context. Each field should only contain information that isn't already stored elsewhere in the event.
+
 **title** — What shows up on the calendar grid. Keep it scannable: 2–5 words, no dates or times (the calendar already shows those). Good: `Dental checkup`. Bad: `Dentist appointment on July 20th at 3pm at Dr. Smith's`.
 
 **description** — What the owner reads when they tap an event. Actionable info they need on the day: confirmation numbers, what to bring, who to contact. Write it like a sticky note — not a paragraph.
 
-**context** — What an AI reads when it needs to reason about the event. Everything that's useful for decision-making but would clutter the description: parking details, price estimates, reviews, travel options, dietary restrictions of attendees. Not displayed in the UI.
+**context** — What an AI reads when it needs to reason about the event. This is the most valuable field — pack it generously. Include everything useful for decision-making that would clutter the description: address, phone, access directions, parking, transit options, cost breakdowns, reviews/ratings, hours of operation, dietary restrictions, booking policies, cancellation terms, relevant history, related events, and anything else a well-prepared assistant would look up in advance. **Always write context in English**, regardless of the user's language — it's for AI consumption, and English maximizes compatibility across models. Not displayed in the UI, so length is not a concern — err on the side of too much rather than too little.
 
 ### Example: a dentist visit
 
@@ -67,11 +81,16 @@ context: |
 
 ## Writing good context
 
-- **No template.** A dentist needs parking info; a dinner needs allergy notes; a deadline needs nothing. Write what's useful, skip what isn't.
-- **Imagine a follow-up question.** "How do I get there?" "How much will it cost?" "What should I watch out for?" If context answers these without a web search, it's doing its job.
-- **Don't repeat description.** Context complements; it doesn't echo.
+Context is the event's knowledge base. The goal is to make the calendar self-sufficient — when the owner or a future AI revisits the event, they should never need to re-search for basic logistics.
+
+- **Default to thorough.** If you have access to web search, use it. Look up the venue's address, phone, hours, transit access, parking, cost, reviews, and anything else a personal assistant would brief you on. Five useful lines are better than one vague one.
+- **Cover the obvious questions.** "How do I get there?" "How much will it cost?" "What should I watch out for?" "What's nearby?" "What happened last time?" If context answers these without a web search, it's doing its job.
+- **Include related logistics.** For a flight, add terminal info, lounge access, ground transport at destination. For a restaurant, add the menu price range, reservation policy, and allergy notes for attendees. For a deadline, add submission portal URL and format requirements.
+- **Link to the past and future.** If there's a previous related event ("Last dental cleaning: 2025-12-15"), note it. If there's a follow-up ("Return flight: 7/22 ANA256"), include it.
+- **Don't repeat other fields.** Context complements title, description, url, location, and start/end times — it doesn't echo them. Description likewise shouldn't parrot start_at or url.
 - **Label uncertainty.** Facts are facts. Estimates, reviews, and forecasts should say so.
 - **Note freshness for perishable info.** Weather, prices, availability — add when you looked it up.
+- **No template.** A dentist needs parking info; a dinner needs allergy notes; a deadline needs nothing. Write what's useful — but when in doubt, include it.
 
 ## Using tags effectively
 
