@@ -171,7 +171,7 @@ async fn reminder_endpoints_emit_event_updated() {
 }
 
 #[tokio::test]
-async fn ics_import_emits_single_event_created() {
+async fn ics_import_emits_single_event_imported() {
     let h = harness();
     let key = api_key(&h).await;
 
@@ -213,8 +213,11 @@ async fn ics_import_emits_single_event_created() {
     let (status, result) = call(&h.app, import_req(body.clone())).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(result["created"], 2);
-    // One coarse broadcast per import, not one per created event.
-    assert_eq!(recv_type(&mut rx), "event.created");
+    // One coarse broadcast per import, not one per created event — and a
+    // dedicated type, so event.created keeps its documented full-Event payload.
+    let event = rx.try_recv().expect("expected a bus event");
+    assert_eq!(event.event_type, "event.imported");
+    assert_eq!(event.data["imported"], 2);
     assert!(rx.try_recv().is_err());
 
     // A re-import creates nothing and must stay silent.

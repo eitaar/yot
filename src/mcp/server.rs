@@ -339,8 +339,9 @@ impl McpServer {
         let ics = args.get("ics").and_then(|v| v.as_str()).ok_or("Missing ics")?;
         let result = self.with_conn(|conn| import::import_ics(conn, calendar_id, ics.as_bytes()))?;
         // One coarse broadcast per import; listeners refetch the whole list.
+        // A dedicated type keeps the documented event.created payload intact.
         if result.created > 0 {
-            self.emit("event.created", json!({"imported": result.created}));
+            self.emit("event.imported", json!({"imported": result.created}));
         }
         Ok(serde_json::to_value(result).unwrap())
     }

@@ -10,6 +10,7 @@ const CHANGE_EVENTS = [
 	"event.created",
 	"event.updated",
 	"event.deleted",
+	"event.imported",
 	"tag.created",
 	"tag.updated",
 	"tag.deleted",
