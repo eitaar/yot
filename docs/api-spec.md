@@ -328,6 +328,7 @@ data: {"id":"...","title":"...", ...}
 | `event.created` | `Event` 全体 |
 | `event.updated` | `Event` 全体(タグ・リマインダー変更時も発火) |
 | `event.deleted` | `{ "id": "string" }` |
+| `event.imported` | `{ "imported": number }`(ICS インポートで 1 件以上作成されたとき 1 回) |
 | `calendar.created` | `Calendar` 全体 |
 | `calendar.updated` | `Calendar` 全体 |
 | `calendar.deleted` | `{ "id": "string" }` |

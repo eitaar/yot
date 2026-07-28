@@ -7,7 +7,7 @@ pub struct RelayConfig {
     pub api_key: String,
 }
 
-pub fn start_relay(bus: &EventBus, config: RelayConfig) {
+pub fn start_relay(bus: &EventBus, config: RelayConfig) -> tokio::task::JoinHandle<()> {
     let mut rx = bus.subscribe();
     let client = reqwest::Client::new();
 
@@ -36,5 +36,5 @@ pub fn start_relay(bus: &EventBus, config: RelayConfig) {
                 Err(broadcast::error::RecvError::Closed) => break,
             }
         }
-    });
+    })
 }

@@ -4,6 +4,7 @@ use yot_server::config::Config;
 use yot_server::core::event_bus::EventBus;
 use yot_server::auth::apikey;
 use yot_server::db::schema;
+use yot_server::mcp::relay::{start_relay, RelayConfig};
 use yot_server::mcp::server::McpServer;
 
 fn main() {
@@ -40,7 +41,23 @@ fn main() {
 
     let bus = EventBus::new();
 
-    // Relay logging removed — stderr output can interfere with MCP clients
+    // Forward bus events to the server's /api/internal/events so browsers on
+    // the SSE stream see changes made through this stdio process. The relay
+    // task needs a Tokio reactor; the runtime must outlive the blocking
+    // server.run() below, so it lives here in main.
+    let runtime = tokio::runtime::Runtime::new().expect("Failed to start Tokio runtime");
+    let _guard = runtime.enter();
+    let relay = if config.yot_sse_relay {
+        config.yot_api_key.as_ref().map(|api_key| {
+            let url = format!(
+                "{}/api/internal/events",
+                config.http_base_url().trim_end_matches('/')
+            );
+            start_relay(&bus, RelayConfig { url, api_key: api_key.clone() })
+        })
+    } else {
+        None
+    };
 
     let server = McpServer {
         conn: Mutex::new(conn),
@@ -49,4 +66,14 @@ fn main() {
     };
 
     server.run();
+
+    // Dropping the server closes the last bus sender, which ends the relay
+    // loop; wait for it so an in-flight forward isn't cut off mid-POST when
+    // stdin closes.
+    drop(server);
+    if let Some(handle) = relay {
+        let _ = runtime.block_on(async {
+            tokio::time::timeout(std::time::Duration::from_secs(5), handle).await
+        });
+    }
 }
