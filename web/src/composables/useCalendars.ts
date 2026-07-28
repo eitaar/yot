@@ -14,13 +14,15 @@ export function useCalendars() {
 	async function load() {
 		calendars.value = await getAll("calendars");
 
-		api
-			.listCalendars()
-			.then(async (result) => {
-				calendars.value = result;
-				await replaceAll("calendars", result);
-			})
-			.catch(() => {});
+		// Await the refetch so load() only resolves once the data is actually
+		// fresh — coalesce() and `await refresh(...)` callers depend on that.
+		try {
+			const result = await api.listCalendars();
+			calendars.value = result;
+			await replaceAll("calendars", result);
+		} catch {
+			// Offline or refetch failure: keep the cached snapshot.
+		}
 	}
 
 	async function create(name: string, color?: string) {

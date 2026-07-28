@@ -239,6 +239,8 @@ impl McpServer {
         let r = self.with_conn(|conn| event::add_reminder(conn, event_id, CreateReminderInput {
             minutes_before, method: method.to_string(),
         }))?;
+        let ev = self.with_conn(|conn| event::get(conn, event_id))?;
+        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
         Ok(serde_json::to_value(r).unwrap())
     }
 
@@ -247,6 +249,8 @@ impl McpServer {
         let event_id = args.get("event_id").and_then(|v| v.as_str()).ok_or("Missing event_id")?;
         let reminder_id = args.get("reminder_id").and_then(|v| v.as_str()).ok_or("Missing reminder_id")?;
         self.with_conn(|conn| event::remove_reminder(conn, event_id, reminder_id))?;
+        let ev = self.with_conn(|conn| event::get(conn, event_id))?;
+        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
         Ok(json!({"ok": true}))
     }
 
@@ -334,6 +338,10 @@ impl McpServer {
         let calendar_id = args.get("calendar_id").and_then(|v| v.as_str()).ok_or("Missing calendar_id")?;
         let ics = args.get("ics").and_then(|v| v.as_str()).ok_or("Missing ics")?;
         let result = self.with_conn(|conn| import::import_ics(conn, calendar_id, ics.as_bytes()))?;
+        // One coarse broadcast per import; listeners refetch the whole list.
+        if result.created > 0 {
+            self.emit("event.created", json!({"imported": result.created}));
+        }
         Ok(serde_json::to_value(result).unwrap())
     }
 

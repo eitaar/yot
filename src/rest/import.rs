@@ -42,5 +42,11 @@ async fn import_ics(
         crate::services::import::import_ics(conn, &cal_id, &data)
     }).await?;
 
+    // One coarse broadcast per import: listeners refetch the whole event list,
+    // so per-event emits would only flood the bus on large files.
+    if result.created > 0 {
+        state.bus.emit("event.created", serde_json::json!({"imported": result.created}));
+    }
+
     Ok((StatusCode::OK, Json(serde_json::to_value(result).unwrap())))
 }

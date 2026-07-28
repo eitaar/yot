@@ -21,14 +21,16 @@ export function useEvents() {
 		events.value = await getAll("events");
 		precacheImages(events.value);
 
-		api
-			.listEvents(query)
-			.then(async (result) => {
-				events.value = result;
-				await replaceAll("events", result);
-				precacheImages(result);
-			})
-			.catch(() => {});
+		// Await the refetch so load() only resolves once the data is actually
+		// fresh — coalesce() and `await refresh(...)` callers depend on that.
+		try {
+			const result = await api.listEvents(query);
+			events.value = result;
+			await replaceAll("events", result);
+			precacheImages(result);
+		} catch {
+			// Offline or refetch failure: keep the cached snapshot.
+		}
 	}
 
 	async function create(

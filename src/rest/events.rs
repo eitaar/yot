@@ -64,7 +64,10 @@ async fn add_reminder(
     Path(id): Path<String>,
     Json(input): Json<CreateReminderInput>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
+    let event_id = id.clone();
     let reminder = state.db.call(move |conn| crate::services::event::add_reminder(conn, &id, input)).await?;
+    let event = state.db.call(move |conn| crate::services::event::get(conn, &event_id)).await?;
+    state.bus.emit("event.updated", serde_json::to_value(&event).unwrap());
     Ok((StatusCode::CREATED, Json(serde_json::to_value(reminder).unwrap())))
 }
 
@@ -72,7 +75,10 @@ async fn remove_reminder(
     State(state): State<AppState>,
     Path((id, rid)): Path<(String, String)>,
 ) -> Result<StatusCode, AppError> {
+    let event_id = id.clone();
     state.db.call(move |conn| crate::services::event::remove_reminder(conn, &id, &rid)).await?;
+    let event = state.db.call(move |conn| crate::services::event::get(conn, &event_id)).await?;
+    state.bus.emit("event.updated", serde_json::to_value(&event).unwrap());
     Ok(StatusCode::NO_CONTENT)
 }
 

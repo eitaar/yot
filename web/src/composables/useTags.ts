@@ -14,13 +14,15 @@ export function useTags() {
 	async function load() {
 		tags.value = await getAll("tags");
 
-		api
-			.listTags()
-			.then(async (result) => {
-				tags.value = result;
-				await replaceAll("tags", result);
-			})
-			.catch(() => {});
+		// Await the refetch so load() only resolves once the data is actually
+		// fresh — coalesce() and `await refresh(...)` callers depend on that.
+		try {
+			const result = await api.listTags();
+			tags.value = result;
+			await replaceAll("tags", result);
+		} catch {
+			// Offline or refetch failure: keep the cached snapshot.
+		}
 	}
 
 	async function create(name: string, color?: string) {
