@@ -9,6 +9,8 @@ pub struct Config {
     pub yot_api_key: Option<String>,
     pub yot_http_url: Option<String>,
     pub yot_sse_relay: bool,
+    pub hermes_api_url: String,
+    pub hermes_api_key: Option<String>,
 }
 
 pub fn default_data_dir() -> PathBuf {
@@ -66,6 +68,11 @@ impl Config {
             Ok("off" | "OFF" | "false" | "FALSE" | "0" | "no" | "NO")
         );
 
+        let hermes_api_url = std::env::var("HERMES_API_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:8642/v1/chat/completions".to_string());
+
+        let hermes_api_key = std::env::var("HERMES_API_KEY").ok();
+
         Self {
             port,
             data_dir,
@@ -75,6 +82,8 @@ impl Config {
             yot_api_key,
             yot_http_url,
             yot_sse_relay,
+            hermes_api_url,
+            hermes_api_key,
         }
     }
 

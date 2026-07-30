@@ -20,6 +20,7 @@ async fn main() {
 
     let config = Config::from_env();
     std::fs::create_dir_all(&config.data_dir).expect("Failed to create data directory");
+    let port = config.port;
     let db = Db::open(&config.db_path).expect("Failed to open database");
     let bus = EventBus::new();
     let pairing = Arc::new(PairingService::new());
@@ -35,10 +36,12 @@ async fn main() {
     });
 
     let auth_codes = Arc::new(AuthCodeStore::new());
-    let state = AppState { db, bus, pairing, rate_limiter, mcp, auth_codes };
+    let http_client = reqwest::Client::new();
+    let config = Arc::new(config);
+    let state = AppState { db, bus, pairing, rate_limiter, mcp, auth_codes, http_client, config };
     let app = rest::build_router(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

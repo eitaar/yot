@@ -1,3 +1,4 @@
+pub mod ask;
 pub mod auth;
 pub mod calendars;
 pub mod events;
@@ -38,6 +39,8 @@ pub struct AppState {
     pub rate_limiter: Arc<RateLimiter>,
     pub mcp: Arc<McpServer>,
     pub auth_codes: Arc<AuthCodeStore>,
+    pub http_client: reqwest::Client,
+    pub config: Arc<crate::config::Config>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -54,6 +57,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(stream::routes())
         .merge(internal::routes())
         .merge(auth::protected_routes())
+        .merge(ask::routes())
         .route("/mcp", axum::routing::post(mcp::handle_mcp))
         .layer(middleware::from_fn({
             let db = state.db.clone();
