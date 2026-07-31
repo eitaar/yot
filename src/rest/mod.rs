@@ -1,4 +1,5 @@
 pub mod ask;
+pub mod ask_models;
 pub mod auth;
 pub mod calendars;
 pub mod events;
@@ -58,6 +59,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(internal::routes())
         .merge(auth::protected_routes())
         .merge(ask::routes())
+        .merge(ask_models::routes())
         .route("/mcp", axum::routing::post(mcp::handle_mcp))
         .layer(middleware::from_fn({
             let db = state.db.clone();
