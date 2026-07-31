@@ -67,6 +67,59 @@ download_and_install() {
         fi
     done
 
+    echo "==> Setting up environment"
+    if [ ! -f "$DATA_DIR/.env" ]; then
+        # Copy .env.example if available in release archive
+        if [ -f "$TMPDIR/extract/.env.example" ]; then
+            cp "$TMPDIR/extract/.env.example" "$DATA_DIR/.env"
+            echo "  Created .env file (edit to configure Hermes integration)"
+        else
+            echo "  No .env.example found, skipping"
+        fi
+    else
+        echo "  .env already exists, skipping"
+    fi
+
+    echo "==> Checking Hermes installation"
+    if command -v hermes >/dev/null 2>&1; then
+        echo "  Hermes found at $(which hermes)"
+        if [ -f "$DATA_DIR/yot-mcp" ]; then
+            # Check if yot MCP is already registered
+            if hermes mcp list 2>/dev/null | grep -q "^yot"; then
+                echo "  yot MCP server already registered, updating..."
+                hermes mcp remove yot >/dev/null 2>&1 || true
+            fi
+            echo "  Registering yot MCP server with Hermes"
+            
+            # Extract YOT_API_KEY from .env if it exists and is set
+            YOT_KEY=""
+            if [ -f "$DATA_DIR/.env" ]; then
+                YOT_KEY=$(grep '^YOT_API_KEY=' "$DATA_DIR/.env" 2>/dev/null | cut -d= -f2- | head -1)
+            fi
+            
+            if [ -n "$YOT_KEY" ]; then
+                hermes mcp add yot --command "$DATA_DIR/yot-mcp" --env "YOT_API_KEY=$YOT_KEY" 2>/dev/null && {
+                    echo "  ✓ yot MCP server registered with API key"
+                } || {
+                    echo "  ⚠ Failed to register MCP server. Manual setup:"
+                    echo "    hermes mcp add yot --command $DATA_DIR/yot-mcp --env YOT_API_KEY=$YOT_KEY"
+                }
+            else
+                hermes mcp add yot --command "$DATA_DIR/yot-mcp" 2>/dev/null && {
+                    echo "  ✓ yot MCP server registered (no API key)"
+                    echo "  Note: Edit $DATA_DIR/.env to add YOT_API_KEY for full functionality"
+                } || {
+                    echo "  ⚠ Failed to register MCP server. Manual setup:"
+                    echo "    hermes mcp add yot --command $DATA_DIR/yot-mcp"
+                }
+            fi
+        fi
+    else
+        echo "  Hermes not found, skipping MCP registration"
+        echo "  Install Hermes from https://github.com/NousResearch/hermes-agent"
+        echo "  Then run: hermes mcp add yot --command $DATA_DIR/yot-mcp"
+    fi
+
     rm -rf "$TMPDIR"
 }
 
