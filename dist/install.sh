@@ -85,7 +85,7 @@ download_and_install() {
         echo "  Hermes found at $(which hermes)"
         if [ -f "$DATA_DIR/yot-mcp" ]; then
             # Check if yot MCP is already registered
-            if hermes mcp list 2>/dev/null | grep -q "^yot"; then
+            if hermes mcp list 2>/dev/null | grep -q "yot"; then
                 echo "  yot MCP server already registered, updating..."
                 hermes mcp remove yot >/dev/null 2>&1 || true
             fi
