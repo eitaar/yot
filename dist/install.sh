@@ -9,10 +9,18 @@ INTERACTIVE=true
 HERMES_ENDPOINT="http://127.0.0.1:8642/v1/chat/completions"
 HERMES_API_KEY=""
 
-# Check if running non-interactively (piped input or --non-interactive flag)
-if [ ! -t 0 ]; then
+# Use the controlling terminal for prompts even when the script is piped via curl.
+if [ -r /dev/tty ]; then
+    INTERACTIVE=true
+    INPUT_TTY=/dev/tty
+else
     INTERACTIVE=false
+    INPUT_TTY=/dev/stdin
 fi
+
+read_input() {
+    read -r "$1" < "$INPUT_TTY"
+}
 
 detect_data_dir() {
     if [ -n "$DATA_DIR" ]; then return; fi
@@ -222,15 +230,15 @@ prompt_config() {
         echo "1. Hermes API integration (enables AI features like Ask)"
         if [ -n "$HERMES_ENDPOINT" ] && [ -n "$HERMES_API_KEY" ]; then
             echo "   Auto-detected: $HERMES_ENDPOINT"
-            echo "   API Key: ***${HERMES_API_KEY: -8}"
+            echo "   API Key: ***$(printf '%s' "$HERMES_API_KEY" | tail -c 8)"
             printf "   Configure this? [Y/n]: "
-            read -r USE_AUTO
+            read_input USE_AUTO
             case "$USE_AUTO" in
                 [Nn]*)
                     printf "   Enter Hermes API endpoint URL: "
-                    read -r HERMES_ENDPOINT
+                    read_input HERMES_ENDPOINT
                     printf "   Enter Hermes API key: "
-                    read -r HERMES_API_KEY
+                    read_input HERMES_API_KEY
                     ;;
                 *)
                     echo "   ✓ Using auto-detected configuration"
@@ -239,30 +247,30 @@ prompt_config() {
         elif [ -n "$HERMES_ENDPOINT" ]; then
             echo "   Auto-detected endpoint: $HERMES_ENDPOINT"
             printf "   Use this endpoint? [Y/n]: "
-            read -r USE_AUTO
+            read_input USE_AUTO
             case "$USE_AUTO" in
                 [Nn]*)
                     printf "   Enter Hermes API endpoint URL: "
-                    read -r HERMES_ENDPOINT
+                    read_input HERMES_ENDPOINT
                     ;;
                 *)
                     echo "   ✓ Using auto-detected endpoint"
                     ;;
             esac
             printf "   Enter Hermes API key (or press Enter to skip): "
-            read -r HERMES_API_KEY
+            read_input HERMES_API_KEY
         else
             printf "   Configure Hermes API? [Y/n]: "
-            read -r CONFIGURE_HERMES
+            read_input CONFIGURE_HERMES
             case "$CONFIGURE_HERMES" in
                 [Nn]*)
                     echo "   ✗ Skipping Hermes API configuration"
                     ;;
                 *)
                     printf "   Enter Hermes API endpoint URL: "
-                    read -r HERMES_ENDPOINT
+                    read_input HERMES_ENDPOINT
                     printf "   Enter Hermes API key (or press Enter to skip): "
-                    read -r HERMES_API_KEY
+                    read_input HERMES_API_KEY
                     ;;
             esac
         fi
@@ -273,7 +281,7 @@ prompt_config() {
         if command -v hermes >/dev/null 2>&1; then
             echo "   This allows Hermes AI to use yot's calendar tools"
             printf "   Register yot MCP server? [Y/n]: "
-            read -r MCP_CHOICE
+            read_input MCP_CHOICE
             case "$MCP_CHOICE" in
                 [Nn]*) 
                     SKIP_MCP=true
@@ -294,7 +302,7 @@ prompt_config() {
             echo "3. Install as systemd service"
             echo "   Run yot-server automatically on system startup"
             printf "   Install systemd service? [y/N]: "
-            read -r SVC_CHOICE
+            read_input SVC_CHOICE
             case "$SVC_CHOICE" in
                 [Yy]*) 
                     INSTALL_SERVICE=true
@@ -393,7 +401,7 @@ main() {
         echo "==> Auto-detected Hermes configuration"
         echo "  Endpoint: $HERMES_ENDPOINT"
         if [ -n "$HERMES_API_KEY" ]; then
-            echo "  API Key: ***${HERMES_API_KEY: -8}"
+            echo "  API Key: ***$(printf '%s' "$HERMES_API_KEY" | tail -c 8)"
         fi
         echo ""
     fi
