@@ -4,6 +4,15 @@ set -e
 REPO="eitaar/yot"
 DATA_DIR="${YOT_DATA_DIR:-}"
 INSTALL_SERVICE=false
+SKIP_MCP=false
+INTERACTIVE=true
+HERMES_ENDPOINT="http://127.0.0.1:8642/v1/chat/completions"
+HERMES_API_KEY=""
+
+# Check if running non-interactively (piped input or --non-interactive flag)
+if [ ! -t 0 ]; then
+    INTERACTIVE=false
+fi
 
 detect_data_dir() {
     if [ -n "$DATA_DIR" ]; then return; fi
@@ -31,6 +40,41 @@ detect_platform() {
         aarch64|arm64) ARCH="arm64" ;;
         *)             echo "Unsupported architecture: $ARCH"; exit 1 ;;
     esac
+}
+
+detect_hermes_config() {
+    # Try to auto-detect Hermes API server configuration
+    if ! command -v hermes >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # Get api_server config in YAML format
+    CONFIG=$(hermes config get platforms.api_server 2>/dev/null) || return 1
+    
+    # Parse YAML values
+    ENABLED=$(echo "$CONFIG" | grep -E '^enabled:' | awk '{print $2}' || echo "false")
+    HOST=$(echo "$CONFIG" | grep -E '^host:' | awk '{print $2}' || echo "127.0.0.1")
+    PORT=$(echo "$CONFIG" | grep -E '^port:' | awk '{print $2}' || echo "8642")
+    KEY=$(echo "$CONFIG" | grep -E '^key:' | awk '{print $2}' || echo "")
+    
+    # Check if api_server is enabled
+    if [ "$ENABLED" != "true" ]; then
+        return 1
+    fi
+    
+    # Set defaults if not found
+    [ -z "$HOST" ] && HOST="127.0.0.1"
+    [ -z "$PORT" ] && PORT="8642"
+    
+    # Construct endpoint URL
+    HERMES_ENDPOINT="http://${HOST}:${PORT}/v1/chat/completions"
+    
+    # Set API key if found
+    if [ -n "$KEY" ]; then
+        HERMES_API_KEY="$KEY"
+    fi
+    
+    return 0
 }
 
 download_and_install() {
@@ -108,7 +152,12 @@ download_and_install() {
         # Copy .env.example if available in release archive
         if [ -f "$TMPDIR/extract/.env.example" ]; then
             cp "$TMPDIR/extract/.env.example" "$DATA_DIR/.env"
-            echo "  Created .env file (edit to configure Hermes integration)"
+            echo "  Created .env file"
+            # Update Hermes endpoint in .env
+            sed -i "s|^HERMES_API_URL=.*|HERMES_API_URL=$HERMES_ENDPOINT|" "$DATA_DIR/.env" 2>/dev/null || true
+            if [ -n "$HERMES_API_KEY" ]; then
+                sed -i "s|^# HERMES_API_KEY=.*|HERMES_API_KEY=$HERMES_API_KEY|" "$DATA_DIR/.env" 2>/dev/null || true
+            fi
         else
             echo "  No .env.example found, skipping"
         fi
@@ -117,7 +166,9 @@ download_and_install() {
     fi
 
     echo "==> Checking Hermes installation"
-    if command -v hermes >/dev/null 2>&1; then
+    if [ "$SKIP_MCP" = true ]; then
+        echo "  Skipping MCP registration (user declined)"
+    elif command -v hermes >/dev/null 2>&1; then
         echo "  Hermes found at $(which hermes)"
         if [ -f "$DATA_DIR/yot-mcp" ]; then
             # Check if yot MCP is already registered
@@ -157,6 +208,54 @@ download_and_install() {
     fi
 
     rm -rf "$TMPDIR"
+}
+
+prompt_config() {
+    echo ""
+    echo "==> Configuration"
+    
+    if [ "$INTERACTIVE" = true ]; then
+        # Hermes endpoint
+        echo ""
+        echo "Hermes API endpoint (default: http://127.0.0.1:8642/v1/chat/completions)"
+        printf "Enter endpoint URL or press Enter for default: "
+        read -r ENDPOINT_INPUT
+        if [ -n "$ENDPOINT_INPUT" ]; then
+            HERMES_ENDPOINT="$ENDPOINT_INPUT"
+        fi
+        
+        # Hermes API key
+        echo ""
+        echo "Hermes API key (for Ask feature, optional)"
+        printf "Enter API key or press Enter to skip: "
+        read -r KEY_INPUT
+        if [ -n "$KEY_INPUT" ]; then
+            HERMES_API_KEY="$KEY_INPUT"
+        fi
+        
+        # MCP registration
+        echo ""
+        if command -v hermes >/dev/null 2>&1; then
+            printf "Register yot as MCP server with Hermes? [Y/n] "
+            read -r MCP_CHOICE
+            case "$MCP_CHOICE" in
+                [Nn]*) SKIP_MCP=true ;;
+            esac
+        fi
+        
+        # Systemd service (Linux only)
+        if [ "$OS" = "linux" ]; then
+            echo ""
+            printf "Install as systemd service? [y/N] "
+            read -r SVC_CHOICE
+            case "$SVC_CHOICE" in
+                [Yy]*) INSTALL_SERVICE=true ;;
+            esac
+        fi
+    else
+        echo "  Running non-interactively"
+        echo "  Using default Hermes endpoint: $HERMES_ENDPOINT"
+    fi
 }
 
 add_to_path() {
@@ -233,6 +332,17 @@ main() {
     echo "  Install:  ${DATA_DIR}"
     echo ""
 
+    # Try to auto-detect Hermes configuration
+    if detect_hermes_config; then
+        echo "==> Auto-detected Hermes configuration"
+        echo "  Endpoint: $HERMES_ENDPOINT"
+        if [ -n "$HERMES_API_KEY" ]; then
+            echo "  API Key: ***${HERMES_API_KEY: -8}"
+        fi
+        echo ""
+    fi
+
+    prompt_config
     download_and_install
     add_to_path
 
