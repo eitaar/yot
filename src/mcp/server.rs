@@ -40,27 +40,23 @@ pub struct JsonRpcResponse {
 }
 
 impl McpServer {
-    pub fn run(&self) {
-        let stdin = io::stdin();
+    pub async fn run(&self) {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        std::thread::spawn(move || {
+            for line in io::stdin().lock().lines().flatten() {
+                if tx.send(line).is_err() { break; }
+            }
+        });
         let stdout = io::stdout();
         let mut stdout = stdout.lock();
 
-        for line in stdin.lock().lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => break,
-            };
-            if line.trim().is_empty() {
-                continue;
-            }
-
+        while let Some(line) = rx.recv().await {
+            if line.trim().is_empty() { continue; }
             let req: JsonRpcRequest = match serde_json::from_str(&line) {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-
-            let response = self.handle_request(&req);
-            if let Some(resp) = response {
+            if let Some(resp) = self.handle_request(&req).await {
                 let out = serde_json::to_string(&resp).unwrap();
                 let _ = writeln!(stdout, "{}", out);
                 let _ = stdout.flush();
@@ -68,13 +64,13 @@ impl McpServer {
         }
     }
 
-    pub fn handle_request(&self, req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
+    pub async fn handle_request(&self, req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
         let id = req.id.clone()?;
 
         let result = match req.method.as_str() {
             "initialize" => self.handle_initialize(req.params.as_ref()),
             "tools/list" => self.handle_tools_list(),
-            "tools/call" => self.handle_tools_call(req.params.as_ref()),
+            "tools/call" => self.handle_tools_call(req.params.as_ref()).await,
             "ping" => Ok(json!({})),
             _ => Err(json!({"code": -32601, "message": "Method not found"})),
         };
@@ -102,13 +98,19 @@ impl McpServer {
         Ok(json!({ "tools": self.tool_definitions() }))
     }
 
-    fn handle_tools_call(&self, params: Option<&Value>) -> Result<Value, Value> {
+    async fn handle_tools_call(&self, params: Option<&Value>) -> Result<Value, Value> {
         let params = params.ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
         let name = params.get("name").and_then(|v| v.as_str())
             .ok_or_else(|| json!({"code": -32602, "message": "Missing tool name"}))?;
         let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
-        let result = self.call_tool(name, &arguments);
+        let result = if name == "upload_image_from_url" {
+            self.tool_upload_image_from_url(&arguments).await
+                .map(|data| json!({"content": [{"type": "text", "text": serde_json::to_string_pretty(&data).unwrap_or_default()}]}))
+                .unwrap_or_else(|msg| json!({"content": [{"type": "text", "text": msg}], "isError": true}))
+        } else {
+            self.call_tool(name, &arguments)
+        };
         Ok(result)
     }
 
@@ -151,7 +153,6 @@ impl McpServer {
             "tag_event" => self.tool_tag_event(args),
             "untag_event" => self.tool_untag_event(args),
             "get_event_image" => self.tool_get_event_image(args),
-            "upload_image_from_url" => self.tool_upload_image_from_url(args),
             "import_ics" => self.tool_import_ics(args),
             _ => Err("Unknown tool".to_string()),
         };
@@ -327,10 +328,10 @@ impl McpServer {
         }
     }
 
-    fn tool_upload_image_from_url(&self, args: &Value) -> Result<Value, String> {
+    async fn tool_upload_image_from_url(&self, args: &Value) -> Result<Value, String> {
         self.require_write()?;
-        let _url = args.get("url").and_then(|v| v.as_str()).ok_or("Missing url")?;
-        Err("upload_image_from_url requires async runtime; use the REST API for URL uploads in MCP context".to_string())
+        let url = args.get("url").and_then(|v| v.as_str()).ok_or("Missing url")?;
+        image::download_from_url(url).await.map(|path| json!(path)).map_err(|e| e.message)
     }
 
     fn tool_import_ics(&self, args: &Value) -> Result<Value, String> {
