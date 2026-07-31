@@ -45,6 +45,7 @@ Both `read` and `write` scope keys are accepted. The Ask endpoint is read-only f
 |---|---|---|---|
 | `query` | string | Yes | The user's natural language question. |
 | `context` | string | No | Additional context for the AI (e.g. timezone, language preference). |
+| `model` | string | No | AI model name. Must be in the server's allowed list. Defaults to the server's configured default (usually `hermes-agent`). |
 
 **Example:**
 
@@ -96,6 +97,24 @@ Both `read` and `write` scope keys are accepted. The Ask endpoint is read-only f
   }
 }
 ```
+
+### `GET /api/ask/models`
+
+List available AI models for the Ask endpoint.
+
+#### Response
+
+| Field | Type | Description |
+|---|---|---|
+| `models` | string[] | Allowed model names. Empty array means no selection UI should be shown. |
+| `default` | string | The model used when `model` is omitted from the request. |
+
+#### Environment
+
+| Variable | Default | Description |
+|---|---|---|
+| `HERMES_ALLOWED_MODELS` | _(empty)_ | Comma-separated model names. If empty, no model selection is offered. |
+| `HERMES_DEFAULT_MODEL` | `hermes-agent` | Model used when the client omits `model`. |
 
 ## Server Configuration
 

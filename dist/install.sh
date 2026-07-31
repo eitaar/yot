@@ -4,6 +4,15 @@ set -e
 REPO="eitaar/yot"
 DATA_DIR="${YOT_DATA_DIR:-}"
 INSTALL_SERVICE=false
+SKIP_MCP=false
+INTERACTIVE=true
+HERMES_ENDPOINT="http://127.0.0.1:8642/v1/chat/completions"
+HERMES_API_KEY=""
+
+# Check if running non-interactively (piped input or --non-interactive flag)
+if [ ! -t 0 ]; then
+    INTERACTIVE=false
+fi
 
 detect_data_dir() {
     if [ -n "$DATA_DIR" ]; then return; fi
@@ -33,6 +42,41 @@ detect_platform() {
     esac
 }
 
+detect_hermes_config() {
+    # Try to auto-detect Hermes API server configuration
+    if ! command -v hermes >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # Get api_server config in YAML format
+    CONFIG=$(hermes config get platforms.api_server 2>/dev/null) || return 1
+    
+    # Parse YAML values
+    ENABLED=$(echo "$CONFIG" | grep -E '^enabled:' | awk '{print $2}' || echo "false")
+    HOST=$(echo "$CONFIG" | grep -E '^host:' | awk '{print $2}' || echo "127.0.0.1")
+    PORT=$(echo "$CONFIG" | grep -E '^port:' | awk '{print $2}' || echo "8642")
+    KEY=$(echo "$CONFIG" | grep -E '^key:' | awk '{print $2}' || echo "")
+    
+    # Check if api_server is enabled
+    if [ "$ENABLED" != "true" ]; then
+        return 1
+    fi
+    
+    # Set defaults if not found
+    [ -z "$HOST" ] && HOST="127.0.0.1"
+    [ -z "$PORT" ] && PORT="8642"
+    
+    # Construct endpoint URL
+    HERMES_ENDPOINT="http://${HOST}:${PORT}/v1/chat/completions"
+    
+    # Set API key if found
+    if [ -n "$KEY" ]; then
+        HERMES_API_KEY="$KEY"
+    fi
+    
+    return 0
+}
+
 download_and_install() {
     EXT="tar.gz"
     if [ "$OS" = "windows" ]; then EXT="zip"; fi
@@ -59,6 +103,31 @@ download_and_install() {
         tar xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR/extract"
     fi
 
+    # Track if this is a fresh install or update
+    IS_UPDATE=false
+    if [ -f "$DATA_DIR/yot-server" ]; then
+        IS_UPDATE=true
+        echo "  Existing installation detected, updating..."
+    fi
+
+    # Track which processes are running
+    SERVER_RUNNING=false
+    MCP_RUNNING=false
+    
+    if [ -f "$DATA_DIR/yot-server" ] && pgrep -f "$DATA_DIR/yot-server" >/dev/null 2>&1; then
+        SERVER_RUNNING=true
+        echo "  Stopping yot-server..."
+        pkill -f "$DATA_DIR/yot-server" 2>/dev/null || true
+        sleep 1
+    fi
+    
+    if [ -f "$DATA_DIR/yot-mcp" ] && pgrep -f "$DATA_DIR/yot-mcp" >/dev/null 2>&1; then
+        MCP_RUNNING=true
+        echo "  Stopping yot-mcp..."
+        pkill -f "$DATA_DIR/yot-mcp" 2>/dev/null || true
+        sleep 1
+    fi
+
     for bin in yot-server yot-mcp yot; do
         found="$(find "$TMPDIR/extract" -name "$bin" -o -name "$bin.exe" | head -1)"
         if [ -n "$found" ]; then
@@ -67,7 +136,182 @@ download_and_install() {
         fi
     done
 
+    # Restart what was running
+    if [ "$SERVER_RUNNING" = true ]; then
+        echo "  Restarting yot-server..."
+        "$DATA_DIR/yot-server" >/dev/null 2>&1 &
+    fi
+    
+    if [ "$MCP_RUNNING" = true ]; then
+        echo "  Restarting yot-mcp..."
+        "$DATA_DIR/yot-mcp" >/dev/null 2>&1 &
+    fi
+
+    echo "==> Setting up environment"
+    if [ ! -f "$DATA_DIR/.env" ]; then
+        # Copy .env.example if available in release archive
+        if [ -f "$TMPDIR/extract/.env.example" ]; then
+            cp "$TMPDIR/extract/.env.example" "$DATA_DIR/.env"
+            echo "  Created .env file"
+            # Update Hermes endpoint in .env
+            sed -i "s|^HERMES_API_URL=.*|HERMES_API_URL=$HERMES_ENDPOINT|" "$DATA_DIR/.env" 2>/dev/null || true
+            if [ -n "$HERMES_API_KEY" ]; then
+                sed -i "s|^# HERMES_API_KEY=.*|HERMES_API_KEY=$HERMES_API_KEY|" "$DATA_DIR/.env" 2>/dev/null || true
+            fi
+        else
+            echo "  No .env.example found, skipping"
+        fi
+    else
+        echo "  .env already exists, skipping"
+    fi
+
+    echo "==> Checking Hermes installation"
+    if [ "$SKIP_MCP" = true ]; then
+        echo "  Skipping MCP registration (user declined)"
+    elif command -v hermes >/dev/null 2>&1; then
+        echo "  Hermes found at $(which hermes)"
+        if [ -f "$DATA_DIR/yot-mcp" ]; then
+            # Check if yot MCP is already registered
+            if hermes mcp list 2>/dev/null | grep -q "yot"; then
+                echo "  yot MCP server already registered, updating..."
+                hermes mcp remove yot >/dev/null 2>&1 || true
+            fi
+            echo "  Registering yot MCP server with Hermes"
+            
+            # Extract YOT_API_KEY from .env if it exists and is set
+            YOT_KEY=""
+            if [ -f "$DATA_DIR/.env" ]; then
+                YOT_KEY=$(grep '^YOT_API_KEY=' "$DATA_DIR/.env" 2>/dev/null | cut -d= -f2- | head -1)
+            fi
+            
+            if [ -n "$YOT_KEY" ]; then
+                yes | hermes mcp add yot --command "$DATA_DIR/yot-mcp" --env "YOT_API_KEY=$YOT_KEY" >/dev/null 2>&1 && {
+                    echo "  ✓ yot MCP server registered with API key"
+                } || {
+                    echo "  ⚠ Failed to register MCP server. Manual setup:"
+                    echo "    hermes mcp add yot --command $DATA_DIR/yot-mcp --env YOT_API_KEY=$YOT_KEY"
+                }
+            else
+                yes | hermes mcp add yot --command "$DATA_DIR/yot-mcp" >/dev/null 2>&1 && {
+                    echo "  ✓ yot MCP server registered (no API key)"
+                    echo "  Note: Edit $DATA_DIR/.env to add YOT_API_KEY for full functionality"
+                } || {
+                    echo "  ⚠ Failed to register MCP server. Manual setup:"
+                    echo "    hermes mcp add yot --command $DATA_DIR/yot-mcp"
+                }
+            fi
+        fi
+    else
+        echo "  Hermes not found, skipping MCP registration"
+        echo "  Install Hermes from https://github.com/NousResearch/hermes-agent"
+        echo "  Then run: hermes mcp add yot --command $DATA_DIR/yot-mcp"
+    fi
+
     rm -rf "$TMPDIR"
+}
+
+prompt_config() {
+    echo ""
+    echo "==> Setup Options"
+    echo ""
+    echo "You can configure the following options:"
+    
+    if [ "$INTERACTIVE" = true ]; then
+        # Option 1: Hermes API integration
+        echo ""
+        echo "1. Hermes API integration (enables AI features like Ask)"
+        if [ -n "$HERMES_ENDPOINT" ] && [ -n "$HERMES_API_KEY" ]; then
+            echo "   Auto-detected: $HERMES_ENDPOINT"
+            echo "   API Key: ***${HERMES_API_KEY: -8}"
+            printf "   Configure this? [Y/n]: "
+            read -r USE_AUTO
+            case "$USE_AUTO" in
+                [Nn]*)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    printf "   Enter Hermes API key: "
+                    read -r HERMES_API_KEY
+                    ;;
+                *)
+                    echo "   ✓ Using auto-detected configuration"
+                    ;;
+            esac
+        elif [ -n "$HERMES_ENDPOINT" ]; then
+            echo "   Auto-detected endpoint: $HERMES_ENDPOINT"
+            printf "   Use this endpoint? [Y/n]: "
+            read -r USE_AUTO
+            case "$USE_AUTO" in
+                [Nn]*)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    ;;
+                *)
+                    echo "   ✓ Using auto-detected endpoint"
+                    ;;
+            esac
+            printf "   Enter Hermes API key (or press Enter to skip): "
+            read -r HERMES_API_KEY
+        else
+            printf "   Configure Hermes API? [Y/n]: "
+            read -r CONFIGURE_HERMES
+            case "$CONFIGURE_HERMES" in
+                [Nn]*)
+                    echo "   ✗ Skipping Hermes API configuration"
+                    ;;
+                *)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    printf "   Enter Hermes API key (or press Enter to skip): "
+                    read -r HERMES_API_KEY
+                    ;;
+            esac
+        fi
+        
+        # Option 2: MCP registration
+        echo ""
+        echo "2. Register yot as MCP server with Hermes"
+        if command -v hermes >/dev/null 2>&1; then
+            echo "   This allows Hermes AI to use yot's calendar tools"
+            printf "   Register yot MCP server? [Y/n]: "
+            read -r MCP_CHOICE
+            case "$MCP_CHOICE" in
+                [Nn]*) 
+                    SKIP_MCP=true
+                    echo "   ✗ Skipping MCP registration"
+                    ;;
+                *)
+                    echo "   ✓ Will register yot as MCP server"
+                    ;;
+            esac
+        else
+            echo "   Hermes not found - skipping MCP registration"
+            SKIP_MCP=true
+        fi
+        
+        # Option 3: Systemd service (Linux only)
+        if [ "$OS" = "linux" ]; then
+            echo ""
+            echo "3. Install as systemd service"
+            echo "   Run yot-server automatically on system startup"
+            printf "   Install systemd service? [y/N]: "
+            read -r SVC_CHOICE
+            case "$SVC_CHOICE" in
+                [Yy]*) 
+                    INSTALL_SERVICE=true
+                    echo "   ✓ Will install as systemd service"
+                    ;;
+                *)
+                    echo "   ✗ Skipping systemd service installation"
+                    ;;
+            esac
+        fi
+        
+        echo ""
+        echo "Configuration complete. Starting installation..."
+    else
+        echo "  Running non-interactively"
+        echo "  Using default Hermes endpoint: $HERMES_ENDPOINT"
+    fi
 }
 
 add_to_path() {
@@ -144,11 +388,27 @@ main() {
     echo "  Install:  ${DATA_DIR}"
     echo ""
 
+    # Try to auto-detect Hermes configuration
+    if detect_hermes_config; then
+        echo "==> Auto-detected Hermes configuration"
+        echo "  Endpoint: $HERMES_ENDPOINT"
+        if [ -n "$HERMES_API_KEY" ]; then
+            echo "  API Key: ***${HERMES_API_KEY: -8}"
+        fi
+        echo ""
+    fi
+
+    prompt_config
     download_and_install
     add_to_path
 
-    echo "==> Running yot init"
-    "$DATA_DIR/yot" init
+    # Skip yot init on updates (only run on fresh install)
+    if [ "$IS_UPDATE" = false ]; then
+        echo "==> Running yot init"
+        "$DATA_DIR/yot" init
+    else
+        echo "  Skipping yot init (existing installation)"
+    fi
 
     if [ "$INSTALL_SERVICE" = true ]; then
         echo "==> Installing systemd service"

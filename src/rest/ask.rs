@@ -13,6 +13,7 @@ pub fn routes() -> Router<AppState> {
 struct AskInput {
     query: String,
     context: Option<String>,
+    model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -41,8 +42,22 @@ async fn ask(
 
     messages.push(json!({"role": "user", "content": input.query}));
 
+    let model = input.model
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| state.config.hermes_default_model.clone());
+
+    // Validate against allowlist (skip if allowlist is empty — server trusts all models)
+    if !state.config.hermes_allowed_models.is_empty()
+        && !state.config.hermes_allowed_models.contains(&model)
+    {
+        return Err(AppError::validation(
+            format!("Model '{}' is not in the allowed list", model),
+            None,
+        ));
+    }
+
     let body = json!({
-        "model": "hermes-agent",
+        "model": model,
         "messages": messages,
         "stream": false,
     });

@@ -11,6 +11,8 @@ pub struct Config {
     pub yot_sse_relay: bool,
     pub hermes_api_url: String,
     pub hermes_api_key: Option<String>,
+    pub hermes_default_model: String,
+    pub hermes_allowed_models: Vec<String>,
 }
 
 pub fn default_data_dir() -> PathBuf {
@@ -73,6 +75,13 @@ impl Config {
 
         let hermes_api_key = std::env::var("HERMES_API_KEY").ok();
 
+        let hermes_default_model = std::env::var("HERMES_DEFAULT_MODEL")
+            .unwrap_or_else(|_| "hermes-agent".to_string());
+
+        let hermes_allowed_models: Vec<String> = std::env::var("HERMES_ALLOWED_MODELS")
+            .map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+            .unwrap_or_default();
+
         Self {
             port,
             data_dir,
@@ -84,6 +93,8 @@ impl Config {
             yot_sse_relay,
             hermes_api_url,
             hermes_api_key,
+            hermes_default_model,
+            hermes_allowed_models,
         }
     }
 
