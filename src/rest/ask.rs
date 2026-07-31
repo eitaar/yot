@@ -26,7 +26,7 @@ struct AskInput {
     model: Option<String>,
 }
 
-const SYSTEM_PROMPT: &str = "You are a calendar assistant for yot. Use the available yot MCP tools to answer questions about the user's calendar. Be concise and answer in the user's language.";
+const SYSTEM_PROMPT: &str = "You are a calendar assistant for yot. Before answering, consult and follow any relevant yot calendar skills and tools. Use the available yot MCP tools for calendar data. Be concise and answer in the user's language.";
 
 type UpstreamStream = Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>>;
 
