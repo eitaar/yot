@@ -59,6 +59,21 @@ download_and_install() {
         tar xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR/extract"
     fi
 
+    # Check if any binary is running and stop them before replacing
+    ANY_RUNNING=false
+    for bin in yot-server yot-mcp yot; do
+        if [ -f "$DATA_DIR/$bin" ] && pgrep -f "$DATA_DIR/$bin" >/dev/null 2>&1; then
+            ANY_RUNNING=true
+            break
+        fi
+    done
+    if [ "$ANY_RUNNING" = true ]; then
+        echo "  Stopping running yot processes..."
+        pkill -f "$DATA_DIR/yot-mcp" 2>/dev/null || true
+        pkill -f "$DATA_DIR/yot-server" 2>/dev/null || true
+        sleep 1
+    fi
+
     for bin in yot-server yot-mcp yot; do
         found="$(find "$TMPDIR/extract" -name "$bin" -o -name "$bin.exe" | head -1)"
         if [ -n "$found" ]; then
@@ -66,6 +81,11 @@ download_and_install() {
             chmod +x "$DATA_DIR/$(basename "$found")"
         fi
     done
+
+    if [ "$ANY_RUNNING" = true ]; then
+        echo "  Restarting yot-server..."
+        "$DATA_DIR/yot-server" >/dev/null 2>&1 &
+    fi
 
     echo "==> Setting up environment"
     if [ ! -f "$DATA_DIR/.env" ]; then
