@@ -212,46 +212,102 @@ download_and_install() {
 
 prompt_config() {
     echo ""
-    echo "==> Configuration"
+    echo "==> Setup Options"
+    echo ""
+    echo "You can configure the following options:"
     
     if [ "$INTERACTIVE" = true ]; then
-        # Hermes endpoint
+        # Option 1: Hermes API integration
         echo ""
-        echo "Hermes API endpoint (default: http://127.0.0.1:8642/v1/chat/completions)"
-        printf "Enter endpoint URL or press Enter for default: "
-        read -r ENDPOINT_INPUT
-        if [ -n "$ENDPOINT_INPUT" ]; then
-            HERMES_ENDPOINT="$ENDPOINT_INPUT"
+        echo "1. Hermes API integration (enables AI features like Ask)"
+        if [ -n "$HERMES_ENDPOINT" ] && [ -n "$HERMES_API_KEY" ]; then
+            echo "   Auto-detected: $HERMES_ENDPOINT"
+            echo "   API Key: ***${HERMES_API_KEY: -8}"
+            printf "   Configure this? [Y/n]: "
+            read -r USE_AUTO
+            case "$USE_AUTO" in
+                [Nn]*)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    printf "   Enter Hermes API key: "
+                    read -r HERMES_API_KEY
+                    ;;
+                *)
+                    echo "   ✓ Using auto-detected configuration"
+                    ;;
+            esac
+        elif [ -n "$HERMES_ENDPOINT" ]; then
+            echo "   Auto-detected endpoint: $HERMES_ENDPOINT"
+            printf "   Use this endpoint? [Y/n]: "
+            read -r USE_AUTO
+            case "$USE_AUTO" in
+                [Nn]*)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    ;;
+                *)
+                    echo "   ✓ Using auto-detected endpoint"
+                    ;;
+            esac
+            printf "   Enter Hermes API key (or press Enter to skip): "
+            read -r HERMES_API_KEY
+        else
+            printf "   Configure Hermes API? [Y/n]: "
+            read -r CONFIGURE_HERMES
+            case "$CONFIGURE_HERMES" in
+                [Nn]*)
+                    echo "   ✗ Skipping Hermes API configuration"
+                    ;;
+                *)
+                    printf "   Enter Hermes API endpoint URL: "
+                    read -r HERMES_ENDPOINT
+                    printf "   Enter Hermes API key (or press Enter to skip): "
+                    read -r HERMES_API_KEY
+                    ;;
+            esac
         fi
         
-        # Hermes API key
+        # Option 2: MCP registration
         echo ""
-        echo "Hermes API key (for Ask feature, optional)"
-        printf "Enter API key or press Enter to skip: "
-        read -r KEY_INPUT
-        if [ -n "$KEY_INPUT" ]; then
-            HERMES_API_KEY="$KEY_INPUT"
-        fi
-        
-        # MCP registration
-        echo ""
+        echo "2. Register yot as MCP server with Hermes"
         if command -v hermes >/dev/null 2>&1; then
-            printf "Register yot as MCP server with Hermes? [Y/n] "
+            echo "   This allows Hermes AI to use yot's calendar tools"
+            printf "   Register yot MCP server? [Y/n]: "
             read -r MCP_CHOICE
             case "$MCP_CHOICE" in
-                [Nn]*) SKIP_MCP=true ;;
+                [Nn]*) 
+                    SKIP_MCP=true
+                    echo "   ✗ Skipping MCP registration"
+                    ;;
+                *)
+                    echo "   ✓ Will register yot as MCP server"
+                    ;;
+            esac
+        else
+            echo "   Hermes not found - skipping MCP registration"
+            SKIP_MCP=true
+        fi
+        
+        # Option 3: Systemd service (Linux only)
+        if [ "$OS" = "linux" ]; then
+            echo ""
+            echo "3. Install as systemd service"
+            echo "   Run yot-server automatically on system startup"
+            printf "   Install systemd service? [y/N]: "
+            read -r SVC_CHOICE
+            case "$SVC_CHOICE" in
+                [Yy]*) 
+                    INSTALL_SERVICE=true
+                    echo "   ✓ Will install as systemd service"
+                    ;;
+                *)
+                    echo "   ✗ Skipping systemd service installation"
+                    ;;
             esac
         fi
         
-        # Systemd service (Linux only)
-        if [ "$OS" = "linux" ]; then
-            echo ""
-            printf "Install as systemd service? [y/N] "
-            read -r SVC_CHOICE
-            case "$SVC_CHOICE" in
-                [Yy]*) INSTALL_SERVICE=true ;;
-            esac
-        fi
+        echo ""
+        echo "Configuration complete. Starting installation..."
     else
         echo "  Running non-interactively"
         echo "  Using default Hermes endpoint: $HERMES_ENDPOINT"
