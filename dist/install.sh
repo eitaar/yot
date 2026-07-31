@@ -59,18 +59,28 @@ download_and_install() {
         tar xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR/extract"
     fi
 
-    # Check if any binary is running and stop them before replacing
-    ANY_RUNNING=false
-    for bin in yot-server yot-mcp yot; do
-        if [ -f "$DATA_DIR/$bin" ] && pgrep -f "$DATA_DIR/$bin" >/dev/null 2>&1; then
-            ANY_RUNNING=true
-            break
-        fi
-    done
-    if [ "$ANY_RUNNING" = true ]; then
-        echo "  Stopping running yot processes..."
-        pkill -f "$DATA_DIR/yot-mcp" 2>/dev/null || true
+    # Track if this is a fresh install or update
+    IS_UPDATE=false
+    if [ -f "$DATA_DIR/yot-server" ]; then
+        IS_UPDATE=true
+        echo "  Existing installation detected, updating..."
+    fi
+
+    # Track which processes are running
+    SERVER_RUNNING=false
+    MCP_RUNNING=false
+    
+    if [ -f "$DATA_DIR/yot-server" ] && pgrep -f "$DATA_DIR/yot-server" >/dev/null 2>&1; then
+        SERVER_RUNNING=true
+        echo "  Stopping yot-server..."
         pkill -f "$DATA_DIR/yot-server" 2>/dev/null || true
+        sleep 1
+    fi
+    
+    if [ -f "$DATA_DIR/yot-mcp" ] && pgrep -f "$DATA_DIR/yot-mcp" >/dev/null 2>&1; then
+        MCP_RUNNING=true
+        echo "  Stopping yot-mcp..."
+        pkill -f "$DATA_DIR/yot-mcp" 2>/dev/null || true
         sleep 1
     fi
 
@@ -82,9 +92,15 @@ download_and_install() {
         fi
     done
 
-    if [ "$ANY_RUNNING" = true ]; then
+    # Restart what was running
+    if [ "$SERVER_RUNNING" = true ]; then
         echo "  Restarting yot-server..."
         "$DATA_DIR/yot-server" >/dev/null 2>&1 &
+    fi
+    
+    if [ "$MCP_RUNNING" = true ]; then
+        echo "  Restarting yot-mcp..."
+        "$DATA_DIR/yot-mcp" >/dev/null 2>&1 &
     fi
 
     echo "==> Setting up environment"
@@ -118,14 +134,14 @@ download_and_install() {
             fi
             
             if [ -n "$YOT_KEY" ]; then
-                hermes mcp add yot --command "$DATA_DIR/yot-mcp" --env "YOT_API_KEY=$YOT_KEY" 2>/dev/null && {
+                yes | hermes mcp add yot --command "$DATA_DIR/yot-mcp" --env "YOT_API_KEY=$YOT_KEY" >/dev/null 2>&1 && {
                     echo "  ✓ yot MCP server registered with API key"
                 } || {
                     echo "  ⚠ Failed to register MCP server. Manual setup:"
                     echo "    hermes mcp add yot --command $DATA_DIR/yot-mcp --env YOT_API_KEY=$YOT_KEY"
                 }
             else
-                hermes mcp add yot --command "$DATA_DIR/yot-mcp" 2>/dev/null && {
+                yes | hermes mcp add yot --command "$DATA_DIR/yot-mcp" >/dev/null 2>&1 && {
                     echo "  ✓ yot MCP server registered (no API key)"
                     echo "  Note: Edit $DATA_DIR/.env to add YOT_API_KEY for full functionality"
                 } || {
@@ -220,8 +236,13 @@ main() {
     download_and_install
     add_to_path
 
-    echo "==> Running yot init"
-    "$DATA_DIR/yot" init
+    # Skip yot init on updates (only run on fresh install)
+    if [ "$IS_UPDATE" = false ]; then
+        echo "==> Running yot init"
+        "$DATA_DIR/yot" init
+    else
+        echo "  Skipping yot init (existing installation)"
+    fi
 
     if [ "$INSTALL_SERVICE" = true ]; then
         echo "==> Installing systemd service"
