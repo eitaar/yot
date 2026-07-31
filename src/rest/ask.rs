@@ -13,6 +13,7 @@ pub fn routes() -> Router<AppState> {
 struct AskInput {
     query: String,
     context: Option<String>,
+    model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -41,8 +42,12 @@ async fn ask(
 
     messages.push(json!({"role": "user", "content": input.query}));
 
+    let model = input.model
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| state.config.hermes_default_model.clone());
+
     let body = json!({
-        "model": "hermes-agent",
+        "model": model,
         "messages": messages,
         "stream": false,
     });
