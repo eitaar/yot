@@ -65,7 +65,7 @@ fn main() {
         bus,
     };
 
-    server.run();
+    runtime.block_on(server.run());
 
     // Dropping the server closes the last bus sender, which ends the relay
     // loop; wait for it so an in-flight forward isn't cut off mid-POST when
