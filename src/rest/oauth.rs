@@ -18,9 +18,9 @@ fn is_redirect_allowed(uri: &str) -> bool {
     if !u.username().is_empty() || u.password().is_some() {
         return false;
     }
-    match (u.scheme(), u.host_str()) {
-        ("https", Some("claude.ai")) => true,
-        ("http", Some(h)) if h == "localhost" || h == "127.0.0.1" || h == "[::1]" => true,
+    match u.scheme() {
+        "https" => true,
+        "http" => matches!(u.host_str(), Some(h) if h == "localhost" || h == "127.0.0.1" || h == "[::1]"),
         _ => false,
     }
 }
