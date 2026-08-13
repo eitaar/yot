@@ -7,6 +7,7 @@ pub mod import;
 pub mod internal;
 pub mod mcp;
 pub mod oauth;
+pub mod plugins;
 pub mod stream;
 pub mod tags;
 pub mod uploads;
@@ -60,6 +61,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(auth::protected_routes())
         .merge(ask::routes())
         .merge(ask_models::routes())
+        .merge(plugins::routes())
         .route("/mcp", axum::routing::post(mcp::handle_mcp))
         .layer(middleware::from_fn({
             let db = state.db.clone();
