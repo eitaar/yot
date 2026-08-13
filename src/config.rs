@@ -5,6 +5,7 @@ pub struct Config {
     pub data_dir: PathBuf,
     pub db_path: PathBuf,
     pub img_dir: PathBuf,
+    pub plugin_dir: PathBuf,
     pub mcp_auth: bool,
     pub yot_api_key: Option<String>,
     pub yot_http_url: Option<String>,
@@ -56,6 +57,10 @@ impl Config {
             .map(PathBuf::from)
             .unwrap_or_else(|_| data_dir.join("img"));
 
+        let plugin_dir = std::env::var("PLUGIN_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| data_dir.join("plugins"));
+
         let mcp_auth = !matches!(
             std::env::var("MCP_AUTH").as_deref(),
             Ok("off" | "OFF" | "false" | "FALSE" | "0" | "no" | "NO")
@@ -87,6 +92,7 @@ impl Config {
             data_dir,
             db_path,
             img_dir,
+            plugin_dir,
             mcp_auth,
             yot_api_key,
             yot_http_url,
