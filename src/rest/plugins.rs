@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 use crate::core::error::AppError;
 use crate::rest::AppState;
+use crate::services::plugin_source::SourceSpec;
 
 /// Metadata shown in the plugin list. The full spec carries `data`, `derive`,
 /// `listRow`, etc. on top of these fields; serde ignores the extras here.
@@ -67,6 +68,10 @@ async fn list_plugins(State(state): State<AppState>) -> Result<Json<Value>, AppE
 
 /// `GET /api/plugins/{id}` — return the full spec for one plugin from
 /// `~/.yot/plugins/{id}.json`. The id is guarded against path traversal.
+///
+/// If the spec carries a valid `source` block, the bound calendar's events
+/// are merged into `data.items` (server-side). An invalid `source` falls
+/// back to serving the static items unchanged.
 async fn get_plugin(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -80,5 +85,42 @@ async fn get_plugin(
         .map_err(|_| AppError::not_found(format!("plugin not found: {id}")))?;
     let spec: Value = serde_json::from_str(&raw)
         .map_err(|e| AppError::internal(format!("invalid plugin spec: {e}")))?;
+
+    let spec = match spec.get("source") {
+        Some(src_val) if !src_val.is_null() => match SourceSpec::from_value(src_val) {
+            Ok(src) => {
+                match state
+                    .db
+                    .call(move |conn| crate::services::plugin_source::merge_items(conn, &src))
+                    .await
+                {
+                    Ok(merged) => {
+                        let mut spec = spec;
+                        if let Some(obj) = spec.as_object_mut() {
+                            match obj.get_mut("data").and_then(|d| d.as_object_mut()) {
+                                Some(data) => {
+                                    data.insert("items".into(), Value::Array(merged));
+                                }
+                                None => {
+                                    obj.insert("data".into(), json!({ "items": [], "franchises": [] }));
+                                }
+                            }
+                        }
+                        spec
+                    }
+                    Err(e) => {
+                        tracing::warn!("plugin {id}: source merge failed, serving static items: {e}");
+                        spec
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("plugin {id}: invalid source, serving static items: {e}");
+                spec
+            }
+        },
+        _ => spec,
+    };
+
     Ok(Json(spec))
 }
