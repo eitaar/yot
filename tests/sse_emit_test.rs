@@ -42,6 +42,22 @@ fn harness() -> Harness {
         bus: bus.clone(),
     });
 
+    let config = Arc::new(yot_server::config::Config {
+        port: 4010,
+        data_dir: std::env::temp_dir().clone(),
+        db_path: std::env::temp_dir().join("unused-test.db"),
+        img_dir: std::env::temp_dir().join("unused-test-img"),
+        plugin_dir: std::env::temp_dir().join("unused-test-plugins"),
+        mcp_auth: true,
+        yot_api_key: None,
+        yot_http_url: None,
+        yot_sse_relay: false,
+        hermes_api_url: "http://127.0.0.1:1/v1/chat/completions".to_string(),
+        hermes_api_key: None,
+        hermes_default_model: "test".to_string(),
+        hermes_allowed_models: vec![],
+    });
+
     let state = AppState {
         db,
         bus: bus.clone(),
@@ -49,6 +65,8 @@ fn harness() -> Harness {
         rate_limiter: Arc::new(RateLimiter::new()),
         mcp,
         auth_codes: Arc::new(AuthCodeStore::new()),
+        http_client: reqwest::Client::new(),
+        config,
     };
 
     Harness { app: rest::build_router(state), bus, pairing }
@@ -281,3 +299,95 @@ async fn internal_relay_endpoint_rejects_bad_type_and_missing_auth() {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert!(rx.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn hidden_event_create_is_silent_visible_transition_broadcasts() {
+    let h = harness();
+    let key = api_key(&h).await;
+
+    let (status, cal) = call(
+        &h.app,
+        authed_json("POST", "/api/calendars", &key, json!({"name": "Flights"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let mut rx = h.bus.subscribe();
+
+    // Hidden event: 201 response, NO broadcast.
+    let (status, ghost) = call(
+        &h.app,
+        authed_json(
+            "POST",
+            "/api/events",
+            &key,
+            json!({
+                "calendar_id": cal["id"],
+                "title": "ghost flight",
+                "start_at": "2026-09-10T00:00:00Z",
+                "end_at": "2026-09-10T01:00:00Z",
+                "visible": false
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(ghost["visible"], false);
+    assert!(rx.try_recv().is_err(), "hidden create must not broadcast");
+
+    // Visible event: broadcast happens.
+    let (status, _) = call(
+        &h.app,
+        authed_json(
+            "POST",
+            "/api/events",
+            &key,
+            json!({
+                "calendar_id": cal["id"],
+                "title": "real",
+                "start_at": "2026-09-11T00:00:00Z",
+                "end_at": "2026-09-11T01:00:00Z",
+                "visible": true
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let frame = rx.try_recv().expect("visible create must broadcast");
+    assert_eq!(frame.event_type, "event.created");
+    assert_eq!(frame.data["title"], "real");
+    drain(&mut rx);
+
+    // Unhide the ghost: the visible transition broadcasts event.updated.
+    let ghost_id = ghost["id"].as_str().unwrap();
+    let (status, _) = call(
+        &h.app,
+        authed_json(
+            "PATCH",
+            &format!("/api/events/{ghost_id}"),
+            &key,
+            json!({"visible": true}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let frame = rx.try_recv().expect("visible transition must broadcast");
+    assert_eq!(frame.event_type, "event.updated");
+    assert_eq!(frame.data["title"], "ghost flight");
+    drain(&mut rx);
+
+    // Re-hiding must stay silent again.
+    let (status, _) = call(
+        &h.app,
+        authed_json(
+            "PATCH",
+            &format!("/api/events/{ghost_id}"),
+            &key,
+            json!({"visible": false}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(rx.try_recv().is_err(), "hide transition must not broadcast");
+}
+

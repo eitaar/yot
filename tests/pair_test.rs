@@ -36,6 +36,22 @@ fn harness() -> Harness {
         bus: bus.clone(),
     });
 
+    let config = Arc::new(yot_server::config::Config {
+        port: 4010,
+        data_dir: std::env::temp_dir().clone(),
+        db_path: std::env::temp_dir().join("unused-test.db"),
+        img_dir: std::env::temp_dir().join("unused-test-img"),
+        plugin_dir: std::env::temp_dir().join("unused-test-plugins"),
+        mcp_auth: true,
+        yot_api_key: None,
+        yot_http_url: None,
+        yot_sse_relay: false,
+        hermes_api_url: "http://127.0.0.1:1/v1/chat/completions".to_string(),
+        hermes_api_key: None,
+        hermes_default_model: "test".to_string(),
+        hermes_allowed_models: vec![],
+    });
+
     let state = AppState {
         db: db.clone(),
         bus,
@@ -43,6 +59,8 @@ fn harness() -> Harness {
         rate_limiter: Arc::new(RateLimiter::new()),
         mcp,
         auth_codes: Arc::new(AuthCodeStore::new()),
+        http_client: reqwest::Client::new(),
+        config,
     };
 
     Harness { app: rest::build_router(state), db, pairing }

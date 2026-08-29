@@ -10,7 +10,7 @@ pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppErro
     let mut sql = String::from(
         "SELECT e.id, e.calendar_id, e.title, e.description, e.context, e.location, \
          e.start_at, e.end_at, e.all_day, e.image_path, e.url, e.source_uid, \
-         e.created_at, e.updated_at FROM events e",
+         e.created_at, e.updated_at, e.visible FROM events e",
     );
     let mut conditions: Vec<String> = Vec::new();
     let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -40,6 +40,9 @@ pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppErro
         let pattern = format!("%{q}%");
         param_values.push(Box::new(pattern.clone()));
         param_values.push(Box::new(pattern));
+    }
+    if query.include_hidden != Some(true) {
+        conditions.push("e.visible = 1".to_string());
     }
 
     if !conditions.is_empty() {
@@ -71,6 +74,7 @@ pub fn list(conn: &Connection, query: &EventQuery) -> Result<Vec<Event>, AppErro
             source_uid: row.get(11)?,
             created_at: row.get(12)?,
             updated_at: row.get(13)?,
+            visible: row.get::<_, i64>(14)? != 0,
         })
     })?;
 
@@ -97,7 +101,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Event, AppError> {
     let row = conn
         .query_row(
             "SELECT id, calendar_id, title, description, context, location, start_at, end_at, \
-             all_day, image_path, url, source_uid, created_at, updated_at \
+             all_day, image_path, url, source_uid, created_at, updated_at, visible \
              FROM events WHERE id = ?",
             [id],
             |row| {
@@ -116,6 +120,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Event, AppError> {
                     source_uid: row.get(11)?,
                     created_at: row.get(12)?,
                     updated_at: row.get(13)?,
+                    visible: row.get::<_, i64>(14)? != 0,
                 })
             },
         )
@@ -145,8 +150,8 @@ pub fn create(conn: &Connection, input: CreateEventInput) -> Result<Event, AppEr
     let now = now_iso();
     conn.execute(
         "INSERT INTO events (id, calendar_id, title, description, context, location, start_at, end_at, \
-         all_day, image_path, url, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         all_day, image_path, url, visible, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             id,
             input.calendar_id,
@@ -159,6 +164,7 @@ pub fn create(conn: &Connection, input: CreateEventInput) -> Result<Event, AppEr
             input.all_day as i64,
             input.image_path,
             input.url,
+            input.visible.unwrap_or(true) as i64,
             now,
             now,
         ],
@@ -207,13 +213,14 @@ pub fn update(conn: &Connection, id: &str, input: UpdateEventInput) -> Result<Ev
         Some(v) => v,
         None => existing.image_path,
     };
+    let visible = input.visible.unwrap_or(existing.visible);
 
     conn.execute(
         "UPDATE events SET calendar_id=?, title=?, description=?, context=?, location=?, \
-         start_at=?, end_at=?, all_day=?, image_path=?, url=?, updated_at=? WHERE id=?",
+         start_at=?, end_at=?, all_day=?, image_path=?, url=?, visible=?, updated_at=? WHERE id=?",
         params![
             calendar_id, title, description, context, location, start_at, end_at,
-            all_day as i64, image_path, url, now, id,
+            all_day as i64, image_path, url, visible as i64, now, id,
         ],
     )?;
 
@@ -340,6 +347,7 @@ struct EventRow {
     source_uid: Option<String>,
     created_at: String,
     updated_at: String,
+    visible: bool,
 }
 
 impl EventRow {
@@ -357,6 +365,7 @@ impl EventRow {
             image_path: self.image_path,
             url: self.url,
             source_uid: self.source_uid,
+            visible: self.visible,
             created_at: self.created_at,
             updated_at: self.updated_at,
             tags,
