@@ -40,6 +40,7 @@ pub struct Event {
     pub image_path: Option<String>,
     pub url: Option<String>,
     pub source_uid: Option<String>,
+    pub visible: bool,
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
@@ -59,6 +60,8 @@ pub struct CreateEventInput {
     pub location: Option<String>,
     pub url: Option<String>,
     pub image_path: Option<String>,
+    #[serde(default)]
+    pub visible: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,6 +85,7 @@ pub struct UpdateEventInput {
     pub url: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_double_option")]
     pub image_path: Option<Option<String>>,
+    pub visible: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +98,8 @@ pub struct EventQuery {
     pub q: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+    #[serde(default, rename = "includeHidden")]
+    pub include_hidden: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

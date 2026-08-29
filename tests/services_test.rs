@@ -183,6 +183,7 @@ fn make_event(conn: &rusqlite::Connection, cal_id: &str, title: &str, start: &st
         location: None,
         url: None,
         image_path: None,
+        visible: None,
     }).unwrap()
 }
 
@@ -210,6 +211,7 @@ fn event_create_rejects_end_before_start() {
         end_at: "2026-05-29T10:00:00.000Z".into(),
         all_day: false,
         description: None, context: None, location: None, url: None, image_path: None,
+        visible: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -224,6 +226,7 @@ fn event_create_rejects_unknown_calendar() {
         end_at: "2026-05-29T11:00:00.000Z".into(),
         all_day: false,
         description: None, context: None, location: None, url: None, image_path: None,
+        visible: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -245,6 +248,7 @@ fn event_update_changes_title() {
     let updated = event::update(&conn, &ev.id, UpdateEventInput {
         calendar_id: None, title: Some("New".into()), start_at: None, end_at: None,
         all_day: None, description: None, context: None, location: None, url: None, image_path: None,
+        visible: None,
     }).unwrap();
     assert_eq!(updated.title, "New");
 }
@@ -258,6 +262,7 @@ fn event_update_rejects_end_before_start() {
         calendar_id: None, title: None, start_at: None,
         end_at: Some("2026-05-29T09:00:00.000Z".into()),
         all_day: None, description: None, context: None, location: None, url: None, image_path: None,
+        visible: None,
     }).unwrap_err();
     assert_eq!(err.code, "validation_error");
 }
@@ -331,22 +336,22 @@ fn event_list_filters_and_pagination() {
     make_event(&conn, &other_id, "Gamma", "2026-05-15T10:00:00.000Z", "2026-05-15T11:00:00.000Z");
     event::add_tag(&conn, &a.id, &vip.id).unwrap();
 
-    let by_cal = event::list(&conn, &EventQuery { calendar_id: Some(cal_id.clone()), from: None, to: None, tag: None, q: None, limit: None, offset: None }).unwrap();
+    let by_cal = event::list(&conn, &EventQuery { calendar_id: Some(cal_id.clone()), from: None, to: None, tag: None, q: None, limit: None, offset: None, include_hidden: None }).unwrap();
     assert_eq!(by_cal.len(), 2);
 
-    let from = event::list(&conn, &EventQuery { calendar_id: None, from: Some("2026-05-20T00:00:00.000Z".into()), to: None, tag: None, q: None, limit: None, offset: None }).unwrap();
+    let from = event::list(&conn, &EventQuery { calendar_id: None, from: Some("2026-05-20T00:00:00.000Z".into()), to: None, tag: None, q: None, limit: None, offset: None, include_hidden: None }).unwrap();
     assert_eq!(from.len(), 1);
 
-    let to = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: Some("2026-05-10T00:00:00.000Z".into()), tag: None, q: None, limit: None, offset: None }).unwrap();
+    let to = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: Some("2026-05-10T00:00:00.000Z".into()), tag: None, q: None, limit: None, offset: None, include_hidden: None }).unwrap();
     assert_eq!(to.len(), 1);
 
-    let by_tag = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: Some("vip".into()), q: None, limit: None, offset: None }).unwrap();
+    let by_tag = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: Some("vip".into()), q: None, limit: None, offset: None, include_hidden: None }).unwrap();
     assert_eq!(by_tag.len(), 1);
 
-    let search = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: Some("workshop".into()), limit: None, offset: None }).unwrap();
+    let search = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: Some("workshop".into()), limit: None, offset: None, include_hidden: None }).unwrap();
     assert_eq!(search.len(), 1);
 
-    let limited = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: None, limit: Some(1), offset: None }).unwrap();
+    let limited = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: None, limit: Some(1), offset: None, include_hidden: None }).unwrap();
     assert_eq!(limited.len(), 1);
 }
 
@@ -367,7 +372,7 @@ fn event_list_hydrates_tags_and_reminders_correctly() {
     event::add_reminder(&conn, &first.id, CreateReminderInput { minutes_before: 10, method: "notification".into() }).unwrap();
     event::add_reminder(&conn, &first.id, CreateReminderInput { minutes_before: 60, method: "notification".into() }).unwrap();
 
-    let list = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: None, limit: None, offset: None }).unwrap();
+    let list = event::list(&conn, &EventQuery { calendar_id: None, from: None, to: None, tag: None, q: None, limit: None, offset: None, include_hidden: None }).unwrap();
     let titles: Vec<&str> = list.iter().map(|e| e.title.as_str()).collect();
     assert_eq!(titles, vec!["First", "Second", "Third"]);
     assert_eq!(list[0].tags, vec!["aa", "bb"]);
@@ -392,6 +397,7 @@ fn event_url_and_image_path_roundtrip() {
         description: None, context: None, location: None,
         url: Some("https://example.com".into()),
         image_path: Some("11111111-1111-4111-8111-111111111111.png".into()),
+        visible: None,
     }).unwrap();
     assert_eq!(ev.url.as_deref(), Some("https://example.com"));
     assert_eq!(ev.image_path.as_deref(), Some("11111111-1111-4111-8111-111111111111.png"));
@@ -415,13 +421,84 @@ fn event_update_clears_url_with_null() {
         description: None, context: None, location: None,
         url: Some("https://old.test".into()),
         image_path: None,
+        visible: None,
     }).unwrap();
     let updated = event::update(&conn, &ev.id, UpdateEventInput {
         calendar_id: None, title: None, start_at: None, end_at: None, all_day: None,
         description: None, context: None, location: None,
         url: Some(None),
         image_path: Some(Some("a.png".into())),
+        visible: None,
     }).unwrap();
     assert_eq!(updated.url, None);
     assert_eq!(updated.image_path.as_deref(), Some("a.png"));
 }
+
+#[test]
+fn visible_flag_survives_create_and_update() {
+    let conn = setup();
+    let cal = calendar::create(&conn, CreateCalendarInput {
+        name: "c".into(), color: None, description: None,
+    }).unwrap();
+
+    let ev = event::create(&conn, CreateEventInput {
+        calendar_id: cal.id.clone(),
+        title: "flight".into(),
+        start_at: "2026-09-01T00:00:00.000Z".into(),
+        end_at: "2026-09-01T01:00:00.000Z".into(),
+        all_day: false,
+        description: None, context: None, location: None, url: None, image_path: None,
+        visible: Some(false),
+    }).unwrap();
+    assert!(!ev.visible);
+
+    let ev2 = event::create(&conn, CreateEventInput {
+        calendar_id: cal.id.clone(),
+        title: "personal".into(),
+        start_at: "2026-09-02T00:00:00.000Z".into(),
+        end_at: "2026-09-02T01:00:00.000Z".into(),
+        all_day: false,
+        description: None, context: None, location: None, url: None, image_path: None,
+        visible: Some(true),
+    }).unwrap();
+    assert!(ev2.visible);
+
+    let ev3 = event::update(&conn, &ev2.id, UpdateEventInput {
+        visible: Some(false),
+        calendar_id: None, title: None, start_at: None, end_at: None, all_day: None,
+        description: None, context: None, location: None, url: None, image_path: None,
+    }).unwrap();
+    assert!(!ev3.visible);
+}
+
+#[test]
+fn list_excludes_hidden_by_default() {
+    let conn = setup();
+    let cal = calendar::create(&conn, CreateCalendarInput {
+        name: "c".into(), color: None, description: None,
+    }).unwrap();
+    event::create(&conn, CreateEventInput {
+        calendar_id: cal.id.clone(), title: "shown".into(),
+        start_at: "2026-09-01T00:00:00.000Z".into(), end_at: "2026-09-01T01:00:00.000Z".into(),
+        all_day: false, description: None, context: None, location: None, url: None,
+        image_path: None, visible: Some(true),
+    }).unwrap();
+    event::create(&conn, CreateEventInput {
+        calendar_id: cal.id.clone(), title: "hidden".into(),
+        start_at: "2026-09-02T00:00:00.000Z".into(), end_at: "2026-09-02T01:00:00.000Z".into(),
+        all_day: false, description: None, context: None, location: None, url: None,
+        image_path: None, visible: Some(false),
+    }).unwrap();
+
+    let q = |include_hidden: Option<bool>| EventQuery {
+        calendar_id: None, from: None, to: None, tag: None, q: None,
+        limit: None, offset: None, include_hidden,
+    };
+    let default_list = event::list(&conn, &q(None)).unwrap();
+    assert_eq!(default_list.len(), 1);
+    assert_eq!(default_list[0].title, "shown");
+
+    let all = event::list(&conn, &q(Some(true))).unwrap();
+    assert_eq!(all.len(), 2);
+}
+

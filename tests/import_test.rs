@@ -52,7 +52,7 @@ fn imports_one_off_events_skips_recurring() {
     assert!(result.errors.is_empty());
 
     let list = event::list(&conn, &EventQuery {
-        calendar_id: None, from: None, to: None, tag: None, q: None, limit: Some(50), offset: None,
+        calendar_id: None, from: None, to: None, tag: None, q: None, limit: Some(50), offset: None, include_hidden: None,
     }).unwrap();
 
     let timed = list.iter().find(|e| e.title == "Timed meeting").unwrap();
