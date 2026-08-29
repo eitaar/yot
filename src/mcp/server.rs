@@ -245,7 +245,9 @@ impl McpServer {
             minutes_before, method: method.to_string(),
         }))?;
         let ev = self.with_conn(|conn| event::get(conn, event_id))?;
-        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        }
         Ok(serde_json::to_value(r).unwrap())
     }
 
@@ -255,7 +257,9 @@ impl McpServer {
         let reminder_id = args.get("reminder_id").and_then(|v| v.as_str()).ok_or("Missing reminder_id")?;
         self.with_conn(|conn| event::remove_reminder(conn, event_id, reminder_id))?;
         let ev = self.with_conn(|conn| event::get(conn, event_id))?;
-        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        }
         Ok(json!({"ok": true}))
     }
 
@@ -293,7 +297,9 @@ impl McpServer {
         let event_id = args.get("event_id").and_then(|v| v.as_str()).ok_or("Missing event_id")?;
         let tag_id = args.get("tag_id").and_then(|v| v.as_str()).ok_or("Missing tag_id")?;
         let ev = self.with_conn(|conn| event::add_tag(conn, event_id, tag_id))?;
-        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        }
         Ok(serde_json::to_value(ev).unwrap())
     }
 
@@ -302,7 +308,9 @@ impl McpServer {
         let event_id = args.get("event_id").and_then(|v| v.as_str()).ok_or("Missing event_id")?;
         let tag_id = args.get("tag_id").and_then(|v| v.as_str()).ok_or("Missing tag_id")?;
         let ev = self.with_conn(|conn| event::remove_tag(conn, event_id, tag_id))?;
-        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        }
         Ok(serde_json::to_value(ev).unwrap())
     }
 

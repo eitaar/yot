@@ -7,6 +7,7 @@ use crate::core::error::AppError;
 /// `source` block of a plugin spec: binds the plugin to a calendar whose
 /// events become the plugin's `data.items` (server-side merge).
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SourceSpec {
     #[serde(rename = "calendarId")]
     pub calendar_id: String,
@@ -28,7 +29,7 @@ impl SourceSpec {
     }
 }
 
-const RESERVED: &[&str] = &["id", "title", "start", "end", "desc", "franchise"];
+const RESERVED: &[&str] = &["id", "title", "start", "end", "desc", "franchise", "type"];
 const MERGE_LIMIT: i64 = 200;
 
 /// Load events for a bound calendar and map them into plugin items.
@@ -104,7 +105,13 @@ pub fn merge_items(conn: &rusqlite::Connection, src: &SourceSpec) -> Result<Vec<
             if RESERVED.contains(&k.as_str()) || Some(&k) == src.franchise_field.as_ref() {
                 continue;
             }
-            let out_key = renames.get(&k).cloned().cloned().unwrap_or(k);
+            let out_key = renames.get(&k).cloned().cloned().unwrap_or_else(|| k.clone());
+            // Post-rename guard: a rename must not overwrite server-derived
+            // contract fields either (e.g. map renames some context key to "title").
+            if RESERVED.contains(&out_key.as_str()) {
+                tracing::warn!("plugin source: context key {k} maps to reserved item field {out_key}, ignored");
+                continue;
+            }
             item.insert(out_key, v);
         }
         items.push(Value::Object(item));
@@ -213,5 +220,47 @@ mod tests {
         assert!(SourceSpec::from_value(&v).is_err());
         let v = json!({});
         assert!(SourceSpec::from_value(&v).is_err());
+        // Typos must not be silently accepted — invalid source falls back to
+        // static items, so an ignored key here would flip the whole binding.
+        let v = json!({ "calendarId": "flights", "franchiseFiled": "airline" });
+        assert!(SourceSpec::from_value(&v).is_err());
+    }
+
+    #[test]
+    fn reserved_fields_survive_context_and_renames() {
+        let conn = conn_with_events();
+        // 1) context "type" must not replace source.type
+        conn.execute(
+            "UPDATE events SET context = '{\"type\": \"hotel\", \"airline\": \"ANA\"}' WHERE id = 'e1'",
+            [],
+        ).unwrap();
+        let src = SourceSpec {
+            calendar_id: "flights".into(),
+            item_type: Some("flight".into()),
+            franchise_field: Some("airline".into()),
+            franchise_default: None,
+            map: [("flight".to_string(), "flight_no".to_string())].into_iter().collect(),
+        };
+        let items = merge_items(&conn, &src).unwrap();
+        let e1 = items.iter().find(|i| i["id"] == "ev:e1").unwrap();
+        assert_eq!(e1["type"], "flight");
+        assert_eq!(e1["franchise"], "ANA");
+
+        // 2) rename onto a reserved key must not overwrite the contract field
+        conn.execute(
+            "UPDATE events SET context = '{\"t\": \"shadow\", \"flight_no\": \"XX999\"}' WHERE id = 'e2'",
+            [],
+        ).unwrap();
+        let src = SourceSpec {
+            calendar_id: "flights".into(),
+            item_type: Some("flight".into()),
+            franchise_field: None,
+            franchise_default: None,
+            map: [("title".to_string(), "t".to_string())].into_iter().collect(),
+        };
+        let items = merge_items(&conn, &src).unwrap();
+        let e2 = items.iter().find(|i| i["id"] == "ev:e2").unwrap();
+        assert_eq!(e2["title"], "NRT → SEA"); // server-derived value intact
+        assert_eq!(e2["flight_no"], "XX999"); // unrenamed context key still spread
     }
 }
