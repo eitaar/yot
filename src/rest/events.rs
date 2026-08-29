@@ -35,7 +35,9 @@ async fn create_event(
     Json(input): Json<CreateEventInput>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
     let event = state.db.call(move |conn| crate::services::event::create(conn, input)).await?;
-    state.bus.emit("event.created", serde_json::to_value(&event).unwrap());
+    if event.visible {
+        state.bus.emit("event.created", serde_json::to_value(&event).unwrap());
+    }
     Ok((StatusCode::CREATED, Json(serde_json::to_value(event).unwrap())))
 }
 
@@ -45,7 +47,9 @@ async fn update_event(
     Json(input): Json<UpdateEventInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let event = state.db.call(move |conn| crate::services::event::update(conn, &id, input)).await?;
-    state.bus.emit("event.updated", serde_json::to_value(&event).unwrap());
+    if event.visible {
+        state.bus.emit("event.updated", serde_json::to_value(&event).unwrap());
+    }
     Ok(Json(serde_json::to_value(event).unwrap()))
 }
 

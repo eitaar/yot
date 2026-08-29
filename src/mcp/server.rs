@@ -211,7 +211,9 @@ impl McpServer {
         self.require_write()?;
         let input: CreateEventInput = serde_json::from_value(args.clone()).map_err(|e| e.to_string())?;
         let ev = self.with_conn(|conn| event::create(conn, input))?;
-        self.emit("event.created", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.created", serde_json::to_value(&ev).unwrap());
+        }
         Ok(serde_json::to_value(ev).unwrap())
     }
 
@@ -220,7 +222,9 @@ impl McpServer {
         let id = args.get("id").and_then(|v| v.as_str()).ok_or("Missing id")?;
         let input: UpdateEventInput = serde_json::from_value(args.clone()).map_err(|e| e.to_string())?;
         let ev = self.with_conn(|conn| event::update(conn, id, input))?;
-        self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        if ev.visible {
+            self.emit("event.updated", serde_json::to_value(&ev).unwrap());
+        }
         Ok(serde_json::to_value(ev).unwrap())
     }
 
@@ -353,10 +357,10 @@ impl McpServer {
             {"name": "create_calendar", "description": "Create a calendar", "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "color": {"type": "string"}, "description": {"type": "string"}}, "required": ["name"]}},
             {"name": "update_calendar", "description": "Update a calendar", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "color": {"type": ["string", "null"]}, "description": {"type": ["string", "null"]}}, "required": ["id"]}},
             {"name": "delete_calendar", "description": "Delete a calendar", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
-            {"name": "list_events", "description": "List events with optional filters", "inputSchema": {"type": "object", "properties": {"calendarId": {"type": "string"}, "from": {"type": "string"}, "to": {"type": "string"}, "tag": {"type": "string"}, "q": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}}}},
+            {"name": "list_events", "description": "List events with optional filters. Hidden events (visible=false) are excluded unless includeHidden=true.", "inputSchema": {"type": "object", "properties": {"calendarId": {"type": "string"}, "from": {"type": "string"}, "to": {"type": "string"}, "tag": {"type": "string"}, "q": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}, "includeHidden": {"type": "boolean"}}}},
             {"name": "get_event", "description": "Get one event by id", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
-            {"name": "create_event", "description": "Create an event. 'description' is a human-readable summary; 'context' is an AI-oriented free-form field for supplementary details (parking, directions, pricing, reviews, etc.) that do not belong in the description.", "inputSchema": {"type": "object", "properties": {"calendar_id": {"type": "string"}, "title": {"type": "string"}, "start_at": {"type": "string"}, "end_at": {"type": "string"}, "all_day": {"type": "boolean"}, "description": {"type": "string"}, "context": {"type": "string"}, "location": {"type": "string"}, "url": {"type": "string"}, "image_path": {"type": "string"}}, "required": ["calendar_id", "title", "start_at", "end_at"]}},
-            {"name": "update_event", "description": "Update an event. Set 'context' to null to clear it.", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "calendar_id": {"type": "string"}, "title": {"type": "string"}, "start_at": {"type": "string"}, "end_at": {"type": "string"}, "all_day": {"type": "boolean"}, "description": {"type": ["string", "null"]}, "context": {"type": ["string", "null"]}, "location": {"type": ["string", "null"]}, "url": {"type": ["string", "null"]}, "image_path": {"type": ["string", "null"]}}, "required": ["id"]}},
+            {"name": "create_event", "description": "Create an event. 'description' is a human-readable summary; 'context' is an AI-oriented free-form field for supplementary details (parking, directions, pricing, reviews, etc.) that do not belong in the description. Set 'visible' to false to keep the event out of the calendar (plugin/dataset events).", "inputSchema": {"type": "object", "properties": {"calendar_id": {"type": "string"}, "title": {"type": "string"}, "start_at": {"type": "string"}, "end_at": {"type": "string"}, "all_day": {"type": "boolean"}, "description": {"type": "string"}, "context": {"type": "string"}, "location": {"type": "string"}, "url": {"type": "string"}, "image_path": {"type": "string"}, "visible": {"type": "boolean"}}, "required": ["calendar_id", "title", "start_at", "end_at"]}},
+            {"name": "update_event", "description": "Update an event. Set 'context' to null to clear it. 'visible' toggles calendar visibility (false hides it from the app).", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "calendar_id": {"type": "string"}, "title": {"type": "string"}, "start_at": {"type": "string"}, "end_at": {"type": "string"}, "all_day": {"type": "boolean"}, "description": {"type": ["string", "null"]}, "context": {"type": ["string", "null"]}, "location": {"type": ["string", "null"]}, "url": {"type": ["string", "null"]}, "image_path": {"type": ["string", "null"]}, "visible": {"type": "boolean"}}, "required": ["id"]}},
             {"name": "delete_event", "description": "Delete an event", "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
             {"name": "add_reminder", "description": "Add a reminder to an event", "inputSchema": {"type": "object", "properties": {"event_id": {"type": "string"}, "minutes_before": {"type": "integer"}, "method": {"type": "string"}}, "required": ["event_id", "minutes_before"]}},
             {"name": "remove_reminder", "description": "Remove a reminder from an event", "inputSchema": {"type": "object", "properties": {"event_id": {"type": "string"}, "reminder_id": {"type": "string"}}, "required": ["event_id", "reminder_id"]}},
